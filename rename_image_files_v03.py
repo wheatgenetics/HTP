@@ -25,6 +25,7 @@
 # '-c' or '--cam':      'Camera Serial Number'
 # '-d' or '--dir':      'Beocat directory path to HTP image files', default='/homes/mlucas/uav_incoming/'
 #
+#
 
 
 __author__ = 'mlucas'

@@ -39,6 +39,7 @@
 # '-t' or '--type':     'Image file type, e.g. CR2, JPG'
 # '-o' or '--out':      'Output file path and filename'
 #
+#
 
 __author__ = 'mlucas'
 

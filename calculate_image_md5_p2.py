@@ -18,7 +18,6 @@
 # '-d' or '--dir':      'Beocat directory path to GBS sequence files', default='/homes/jpoland/shared/'
 #
 #
-#
 #import config
 import local_config
 import mysql.connector

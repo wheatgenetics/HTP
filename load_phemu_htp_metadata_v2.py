@@ -2,6 +2,7 @@ from __future__ import print_function
 
 __author__ = 'mlucas'
 
+
 #import local_config
 import config
 import mysql.connector

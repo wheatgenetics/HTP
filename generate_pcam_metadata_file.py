@@ -10,6 +10,7 @@ import utm
 import hashlib
 import exifread
 
+
 __author__ = 'mlucas'
 
 serial_number_tag = 'EXIF BodySerialNumber'
