@@ -1,4 +1,6 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
 #
 # Program: create_uas_dji_x_metadata_file
 #
@@ -521,6 +523,7 @@ uasFolderList=uasFolderPaths.split(',')
 outPath=args.out
 plotRangePath = outPath + 'RangePlotIntersections.csv'
 lineSegmentsPath = outPath + 'RangeLineSegments.csv'
+metadataSqlFilePath=outPath + 'uasMetadataLoad.sql'
 plotPrefix=args.expt
 lonZone=args.lonzone
 latZone=args.latzone
@@ -703,7 +706,7 @@ for uasPath in uasFolderList:
                 oldimagefilepath = uasPath + imagefilename
                 newimagefilepath = oldimagefilepath
                 metadata_record[1] = imagefilename
-                print 'Processing '+ newimagefilepath
+                #print 'Processing '+ newimagefilepath
 
 
             metadata_record[24] = calculate_checksum(newimagefilepath)
@@ -780,7 +783,20 @@ for uasPath in uasFolderList:
                  lineitem[8], lineitem[9], lineitem[10], lineitem[11], lineitem[12], lineitem[13], lineitem[14],
                  lineitem[15],lineitem[16],lineitem[17],lineitem[18],lineitem[19],lineitem[20],lineitem[21],lineitem[22],
                  lineitem[23],lineitem[24]])
+        # Kludge to get rid of blank last line in the file which causes an empty row to be loaded into the database
+        # when using LOAD DATA INFILE procedure!!
+        csvfile.seek(-2, os.SEEK_END)
+        csvfile.truncate()
     csvfile.close()
+
+
+    # Create the SQL command file to load the uas_images metadata
+
+    print 'Generating SQL file for DJI metadata:', metadataSqlFilePath
+    #SET uas_position=ST_PointFromText(CONCAT('POINT(',uas_position_x,' ',uas_position_y,')')),uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');"""
+    loadMetCmd = """LOAD DATA LOCAL INFILE '""" + uasMetadataFile + """' INTO TABLE uas_images FIELDS TERMINATED BY ','""" + """ IGNORE 1 LINES (record_id,image_file_name,flight_id,sensor_id,uas_position_x,uas_position_y,uas_position_z,uas_latitude,uas_longitude,@uas_sampling_date_utc,uas_sampling_time_utc,uas_lat_zone,uas_long_zone,uas_altitude_reference,cam_position_x,cam_position_y,cam_position_z,cam_latitude,cam_longitude,cam_sampling_date_utc,cam_sampling_time_utc,cam_lat_zone,cam_long_zone,cam_altitude_reference,md5sum,notes) SET uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');\n"""
+    with open(metadataSqlFilePath, 'a+') as sqlFile:
+        sqlFile.write(loadMetCmd)
 
     imageFileList = []
     metadatalist = []
