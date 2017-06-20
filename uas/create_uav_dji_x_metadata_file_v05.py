@@ -541,7 +541,10 @@ rangeDurations={}
 rangeLineSegments={}
 plots={}
 
-
+#Initialize a new SQL metadata load file
+with open(metadataSqlFilePath, 'w') as sqlFile:
+    print "Initialized SQL Metadata Load File."
+    sqlFile.close()
 
 gpsEvents,localTimeZone =interpolate_time(flightLog)
 sortedKeys=list(sorted(gpsEvents.keys()))
@@ -794,7 +797,7 @@ for uasPath in uasFolderList:
 
     print 'Generating SQL file for DJI metadata:', metadataSqlFilePath
     #SET uas_position=ST_PointFromText(CONCAT('POINT(',uas_position_x,' ',uas_position_y,')')),uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');"""
-    loadMetCmd = """LOAD DATA LOCAL INFILE '""" + uasMetadataFile + """' INTO TABLE uas_images FIELDS TERMINATED BY ','""" + """ IGNORE 1 LINES (record_id,image_file_name,flight_id,sensor_id,uas_position_x,uas_position_y,uas_position_z,uas_latitude,uas_longitude,@uas_sampling_date_utc,uas_sampling_time_utc,uas_lat_zone,uas_long_zone,uas_altitude_reference,cam_position_x,cam_position_y,cam_position_z,cam_latitude,cam_longitude,cam_sampling_date_utc,cam_sampling_time_utc,cam_lat_zone,cam_long_zone,cam_altitude_reference,md5sum,notes) SET uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');\n"""
+    loadMetCmd = """LOAD DATA LOCAL INFILE '""" + uasMetadataFile + """' INTO TABLE uas_images FIELDS TERMINATED BY ','""" + """ LINES TERMINATED BY '\\r' IGNORE 1 LINES (record_id,image_file_name,flight_id,sensor_id,uas_position_x,uas_position_y,uas_position_z,uas_latitude,uas_longitude,@uas_sampling_date_utc,uas_sampling_time_utc,uas_lat_zone,uas_long_zone,uas_altitude_reference,cam_position_x,cam_position_y,cam_position_z,cam_latitude,cam_longitude,cam_sampling_date_utc,cam_sampling_time_utc,cam_lat_zone,cam_long_zone,cam_altitude_reference,md5sum,notes) SET uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');\n"""
     with open(metadataSqlFilePath, 'a+') as sqlFile:
         sqlFile.write(loadMetCmd)
 
