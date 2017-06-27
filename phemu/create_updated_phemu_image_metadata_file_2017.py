@@ -33,7 +33,7 @@ cmdline.add_argument('-d', '--dir', help='Directory where metadata files are sto
 
 # -input filename will be of the form YYYY-MM-DD-hhmmss_Cam<d>_LogFile_p4.txt where d is in the range 1..5
 
-cmdline.add_argument('-i', '--input', help='p3 metadata input file name')
+cmdline.add_argument('-i', '--input', help='p4 metadata input file name')
 
 # -gnss filename will be of the form YYYY-MM-DD-hhmm_GNSSData_p1.txt
 
@@ -84,7 +84,7 @@ run_id='phemu_'+ startDate + '_' + startTime + '_' + endDate + '_' + endTime
 gnssFile.close()
 
 
-# Get the additional fields required to complete the updated p3 file: position'
+# Get the additional fields required to complete the updated p4 file: position'
 # Get the additional fields required to complete the run file: long_min,long_max,lat_min,lat_max
 
 with open(inputPath,'rU') as metadataFile:
