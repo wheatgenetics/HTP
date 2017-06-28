@@ -57,6 +57,9 @@ updateFilePath=dirPath + args.input[0:fref] + 'p3r.txt'
 camSqlFilePath = dirPath + args.input[0:fref-1] + '.sql'
 runSqlFilePath=dirPath + args.input[0:fref-1] + '_run.sql'
 plotSqlFilePath=dirPath + args.input[0:fref-1] + '_images_plot_id_update.sql'
+utmZone='14'
+utmDesignator='S'
+utmZoneAndDesignator = utmZone + utmDesignator
 
 
 print 'Input Image p3 File:',inputPath
@@ -133,35 +136,18 @@ with open(inputPath,'rU') as metadataFile:
 print 'Read ', inputCount, 'records from ', inputPath
 print ''
 
-# Create the legacy phemu_run metadata file
 
-phRunPath=dirPath+args.input[0:fref-1] + 'phRunData.csv'
-runFolderName=run_id
-utmZone='14'
-utmDesignator='S'
-utmZoneAndDesignator = utmZone + utmDesignator
+# Formulate the date and time strings required
 
-print 'Generating Phemu Run file', phRunPath
-print ' '
+#s_date=startDate
+#startDate=s_date[0:4]+ '-' + s_date[4:6] + '-'+ s_date[6:8]
+#s_time=startTime
+#startTime=s_time[0:2]+ ':' + s_time[2:4] + ':'+ s_time[4:6]
+#e_date=endDate
+#endDate=e_date[0:4]+ '-' + e_date[4:6] + '-'+ e_date[6:8]
+#e_time=endTime
+#endTime=e_time[0:2]+ ':' + e_time[2:4] + ':'+ e_time[4:6]
 
-s_date=startDate
-startDate=s_date[0:4]+ '-' + s_date[4:6] + '-'+ s_date[6:8]
-s_time=startTime
-startTime=s_time[0:2]+ ':' + s_time[2:4] + ':'+ s_time[4:6]
-e_date=endDate
-endDate=e_date[0:4]+ '-' + e_date[4:6] + '-'+ e_date[6:8]
-e_time=endTime
-endTime=e_time[0:2]+ ':' + e_time[2:4] + ':'+ e_time[4:6]
-
-with open(phRunPath, 'wb') as csvfile:
-    header = csv.writer(csvfile)
-    header.writerow(
-        ['run_id','start_date_utc','start_time_utc','end_date_utc','end_time_utc','run_folder_name','long_min',
-         'long_max','lat_min','lat_max','utm_zone'])
-    lineitem = csv.writer(csvfile)
-    lineitem.writerow([run_id,startDate,startTime,endDate,endTime,runFolderName,longMin,longMax,latMin,
-                           latMax,utmZoneAndDesignator])
-csvfile.close()
 
 # Create the updated p3 metadata file (p3r.txt) for the sensor metadata file that includes run_id
 print 'Generating Updated Input Metadata file', updateFilePath
