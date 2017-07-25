@@ -4,6 +4,9 @@ from __future__ import unicode_literals
 #
 # Program: create_uas_dji_x_metadata_file
 #
+# Version 0.6 July 25,2017 Added capability to find nearest plot for a point associated with an image and to generate
+# an output data file containing an ordered list of plots that the flight path actually intersected for each range.
+#
 # Version 0.6 June 30,2017 Added capability to offset latitude and longitude degrees -
 # Currently hard-coded but will be added as parameters later. Corrected ordering of lat_zone and long_zone
 # parameters.
@@ -71,6 +74,9 @@ gpsEpoch = (1980, 1, 6, 0, 0, 0)  # (year, month, day, hh, mm, ss)
 null_date = '0000/00/00'
 null_time = '00:00:00'
 epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.UTC)
+
+# Temporary hard-coded offsets for latitude and longitude used to align flight path with plot ranges
+# This will be removed once the reason for the mis-alignment is determined.
 
 latOffset=-0.0000275
 lonOffset= 0.0
@@ -172,19 +178,6 @@ def interpolate_time(fflightLog):
         prevLat = latitude
         prevLong = longitude
         prevAlt = altitude
-
-        # Store the log data for first row if video was enabled - NB. This code is never executed - Commented OUt
-
-        #if takingVideo == '1':
-        #    # Convert the timestamp to UTC time
-        #    dateTimeStr = datetime.datetime.utcfromtimestamp(timestamp / 1000.0).strftime('%Y/%m/%d %H:%M:%S.%f')
-        #    DateStr = dateTimeStr.split(' ')[0]
-        #    TimeStr = dateTimeStr.split(' ')[1]
-
-            # Store the first row of the log
-         #   gpsEventList = [DateStr, TimeStr, latitude, longitude, altitude, takingVideo, interpolated, int(timestamp),
-          #                  utmPositionX, utmPositionY, utmLatZone, utmLongZone,1]
-           # gpsEventDict[timestamp] = gpsEventList
 
         for row in log:  # Now start processing the rest of the log
             rowCount+=1
@@ -441,25 +434,6 @@ def convert_polygon_coord_system(plt,lonZone,latZone):
     LonLatPlt=LonLatCoordString[0:-1] + '))'
     return LonLatPlt
 
-def create_linestring_from_flightpath(metadatalist):
-    # Creates a multi-line flight path used for plot intersection calculations
-    coords=[]
-    pathIncrement= len(metadatalist)/10
-    segStart=0
-    startLon = metadatalist[segStart][8]
-    startLat = metadatalist[segStart][7]
-    pointA = Point(startLon,startLat)
-    coords = [pointA]
-    for i in range(0,10):
-        segEnd=segStart+pathIncrement -1
-        endLon = metadatalist[segEnd][8]
-        endLat = metadatalist[segEnd][7]
-        pointB = Point(endLon, endLat)
-        coords.extend([pointB])
-        segStart=segEnd
-    rangeLineSegment = wkt.loads(LineString(coords).wkt)
-    return rangeLineSegment
-
 def open_db_connection(config):
 
     # Connect to the HTP database
@@ -498,11 +472,6 @@ def commit_and_close_db_connection(cursor,cnx):
             print('Error Code: ' + e)
 
     return
-
-def build_metadatalist_generator(metadatalist):
-    for i in metadatalist:
-        yield i
-
 
 
 # Get command line input.
@@ -611,12 +580,10 @@ try:
     cursor.execute(plotQuery, (plotPrefix,))
     if cursor.rowcount != 0:
         for row in cursor:
-            recordId=int(row[0])
             plotId=row[1]
             plotPolygon=row[2]
             LonLatPlt = convert_polygon_coord_system(plotPolygon,lonZone,latZone)
             plt=wkt.loads(LonLatPlt)
-            #plots[recordId]=[plotId,plt,plt.centroid]
             plots[plotId] = [plotId, plt, plt.centroid]
 except:
     print 'Unexpected error during database query:', sys.exc_info()[0]
@@ -728,7 +695,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 metadata_record[11] = uas_latzone
                 metadata_record[12] = uas_longzone
 
-    # Determine whether the point corresponding to the image position lies within a plot
+            # Determine whether the point corresponding to the image position lies within a plot
 
                 pt=numpy.array([uas_longitude,uas_latitude])
                 nearest = plotKDTree.query(pt, k=1, distance_upper_bound=6)
@@ -738,6 +705,8 @@ with open(plotRangePath, 'w') as plotRangeFile:
                     print rangeSegment,plotID,plots[plotID][1].wkt,timestamp
                     rangePlotLine = str(image_set) + ',' + plotID + ',"' + plots[plotID][1].wkt + '"\n'
                     plotRangeFile.write(rangePlotLine)
+
+            # Rename image files if specified on command line input
 
                 if renameImages == 'Y':
                     imgDate = uas_sample_date_utc[0:4] + uas_sample_date_utc[5:7] + uas_sample_date_utc[8:10]
@@ -754,8 +723,6 @@ with open(plotRangePath, 'w') as plotRangeFile:
                     oldimagefilepath = uasPath + imagefilename
                     newimagefilepath = oldimagefilepath
                     metadata_record[1] = imagefilename
-                    #print 'Processing '+ newimagefilepath
-
 
                 metadata_record[24] = calculate_checksum(newimagefilepath)
                 metadata_record[0] = record_id
@@ -809,11 +776,6 @@ with open(plotRangePath, 'w') as plotRangeFile:
             print '*** Trying to continue...'
             pass
 
-
-        rangeLineSegments[image_set] = create_linestring_from_flightpath(metadatalist)
-
-
-
         with open(uasMetadataFile, 'wb') as csvfile:
             header = csv.writer(csvfile)
             header.writerow(
@@ -851,27 +813,6 @@ with open(plotRangePath, 'w') as plotRangeFile:
         imageFileList = []
         metadatalist = []
         rangeSegment+=1
-
-# Write out the file containing the range line segments
-
-#with open(lineSegmentsPath, 'w') as lineSegmentsFile:
-#    lineSegmentsFile.write('range_id' + ',' + 'line_segment' + '\n')
-#    for rangeId in sorted(rangeLineSegments.items()):
-#        lineSegment = rangeId[0] + ',"' + rangeId[1].wkt + '"\n'
-#        lineSegmentsFile.write(lineSegment)
-
-# Determine which plots intersect the range segment and write out plot-range intersections file
-
-
-#with open(plotRangePath, 'w') as plotRangeFile:
-#    plotRangeFile.write('range_id' + ',' + 'plot_id' + ',' + 'plot' + '\n')
-#    for rangeId in sorted(rangeLineSegments.items()):
-#        for plotId in sorted(plots.items()):
-#           if rangeId[1].intersects(plotId[1][1]):
-#                #print 'Range Id ' + rangeId[0] +  ' intersects Plot ID ' + plotId[0] + ' , ' + plotId[1].wkt
-#                rangePlotLine = rangeId[0] + ',' + plotId[1][0] + ',"' + plotId[1][1].wkt + '"\n'
-#                plotRangeFile.write(rangePlotLine)
-
 
 # Exit the program gracefully
 

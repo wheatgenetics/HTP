@@ -65,6 +65,8 @@ null_date = '0000/00/00'
 null_time = '00:00:00'
 epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.UTC)
 
+
+
 bufsize = 1  # Use line buffering, i.e. output every line to the file.
 
 # Declare Tags for image EXIF data
