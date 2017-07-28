@@ -139,7 +139,6 @@ for f in imagefiles:
     metadataList.append(metadataRecord)
     metadataList.append(metadataRecord)
     camIndex += 1
-
 #
 # Write out the metadata file
 #
