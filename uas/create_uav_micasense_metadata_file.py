@@ -116,7 +116,7 @@ for f in imagefiles:
     mm= timeUTC[3:5]
     s= timeUTC[6:8]
     timeString=h+mm+s
-    sensorId = cam_serial_no
+    sensorId = 'CAM_'+ cam_serial_no
     getcontext().prec=7
     lonDec=Decimal(str(longitude))
     latDec=Decimal(str(latitude))
