@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
+
 
 from __future__ import unicode_literals
 
@@ -22,6 +22,9 @@ from __future__ import unicode_literals
 __author__ = 'mlucas'
 
 import csv
+import mysql.connector
+from mysql.connector import errorcode
+import test_config
 import math
 import time
 import sys
@@ -37,8 +40,8 @@ from decimal import *
 
 
 
-print imagepreprocess.__name__
-print sys.path
+#print imagepreprocess.__name__
+#print sys.path
 
 # Get command line input.
 
@@ -125,7 +128,7 @@ for f in imagefiles:
     positionRef = 1
     notes=None
     # Rename image files
-    imageFileName='CAM_' + sensorId + '_' + dateString + '_' + timeString+ '_' +  imagefilename
+    imageFileName=sensorId + '_' + dateString + '_' + timeString+ '_' +  imagefilename
     oldImageFilePath= uasPath + imagefilename
     newImageFilePath= uasPath + imageFileName
     os.rename (oldImageFilePath,newImageFilePath)
@@ -157,6 +160,55 @@ with open(uasmetfile, 'ab') as csvfile:
              lineitem[8], lineitem[9], lineitem[10]])
 
 csvfile.close()
+
+
+# Connect to the wheatgenetics database
+
+print("")
+print("Connecting to Database...")
+
+try:
+    cnx = mysql.connector.connect(user=test_config.USER, password=test_config.PASSWORD, host=test_config.HOST,
+                                  port=test_config.PORT,database=test_config.DATABASE)
+except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+        print("Something is wrong with your user name or password")
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+        print("Database does not exist")
+    else:
+        print(err)
+else:
+    cursorA = cnx.cursor(buffered=True)
+    cursorB = cnx.cursor(buffered=True)
+
+gcp_coords=None
+pixel_coords=None
+record_id=None
+
+#db_insert = "INSERT INTO uas_images_test (record_id,image_file_name,flight_id,sensor_id,date_utc,time_utc,position,altitude,altitude_ref,md5sum,position_source,notes) VALUES (%s,%s,%s,%s,%s,%s,ST_PointFromText(%(position)s),%s,%s,%s,%s,%s)"
+db_insert = "INSERT INTO uas_images_test (record_id,image_file_name,flight_id,sensor_id,date_utc,time_utc,position,altitude,altitude_ref,md5sum,position_source,notes) VALUES (%s,%s,%s,%s,%s,%s,ST_PointFromText(%s),%s,%s,%s,%s,%s)"
+
+db_check = "SELECT record_id FROM uas_images_test WHERE flight_id LIKE %s"
+
+insertCount=0
+for lineitem in metadataList:
+    dataRow=(record_id,lineitem[0], lineitem[1], lineitem[2],lineitem[3], lineitem[4], lineitem[5], lineitem[6],lineitem[7],lineitem[8], lineitem[9], lineitem[10])
+    cursorA.execute(db_insert,dataRow )
+    cnx.commit()
+    insertCount+=1
+cursorB.execute(db_check, (flightId, ))
+checkCount = cursorB.rowcount
+
+cursorA.close()
+cursorB.close()
+print ("")
+print ("Number of rows to be inserted into the database", len(metadataList))
+print("Number of metadata records inserted", insertCount)
+print("Number of database records returned on insert check query", checkCount)
+print("")
+print('Closing database connection...')
+
+cnx.close()
 
 # Exit the program gracefully
 
