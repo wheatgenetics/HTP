@@ -34,7 +34,7 @@ import imagepreprocess
 from imagepreprocess import *
 from shapely import wkt
 from shapely.wkt import dumps
-from shapely.geometry import Point
+from shapely.geometry import Point,Polygon
 from decimal import *
 
 
@@ -88,12 +88,14 @@ image.close()
 y = dateUTC[0:4]
 m = dateUTC[5:7]
 d = dateUTC[8:10]
-dateString = y + m + d
+startDate=dateUTC
+startDateStr = y + m + d
 h = timeUTC[0:2]
 mm = timeUTC[3:5]
 s = timeUTC[6:8]
-timeString = h + mm + s
-flightId = 'uas_' + dateString + '_' + timeString
+startTime=timeUTC
+startTimeStr = h + mm + s
+flightId = 'uas_' + startDateStr + '_' + startTimeStr
 
 camIndex = 0
 for f in imagefiles:
@@ -120,28 +122,33 @@ for f in imagefiles:
     s= timeUTC[6:8]
     timeString=h+mm+s
     sensorId = 'CAM_'+ cam_serial_no
-    getcontext().prec=7
-    lonDec=Decimal(str(longitude))
-    latDec=Decimal(str(latitude))
-    position = dumps(Point(lonDec, latDec),rounding_precision=7)
-    #position = Point(lonDec, latDec)
+    # Create a WKT representation of the position POINT object using shapely dumps function
+    position = dumps(Point(longitude, latitude))
     positionRef = 1
     notes=None
-    # Rename image files
+    # Rename image files - ****Temporarily disabled along with md5sum calculation on new file****.
     imageFileName=sensorId + '_' + dateString + '_' + timeString+ '_' +  imagefilename
     oldImageFilePath= uasPath + imagefilename
     newImageFilePath= uasPath + imageFileName
-    os.rename (oldImageFilePath,newImageFilePath)
+    #os.rename (oldImageFilePath,newImageFilePath)
     # Populate the metadata data structure for the renamed image
-    #metadata_record = init_metadata_record(flightId, sensorId)
     metadataRecord=[]
     altitude=float(altitudeFeet) * 0.3048
-    md5sum = calculate_checksum(newImageFilePath)
+    #md5sum = calculate_checksum(newImageFilePath)
+    md5sum = calculate_checksum(oldImageFilePath)
     #metadataRecord=[imageFileName,flightId,sensorId,dateUTC,timeUTC,position.wkt,altitude,altitudeRef,md5sum,positionRef,notes]
     metadataRecord = [imageFileName, flightId, sensorId, dateUTC, timeUTC, position, altitude, altitudeRef, md5sum,positionRef, notes]
     metadataList.append(metadataRecord)
     metadataList.append(metadataRecord)
     camIndex += 1
+
+
+endDate=dateUTC
+endTime=timeUTC
+flightFileName=uasPath
+experimentId='XXXXX'
+plannedElevation=25.0
+
 #
 # Write out the metadata file
 #
@@ -180,6 +187,8 @@ except mysql.connector.Error as err:
 else:
     cursorA = cnx.cursor(buffered=True)
     cursorB = cnx.cursor(buffered=True)
+    cursorC = cnx.cursor(buffered=True)
+    cursorD = cnx.cursor(buffered=True)
 
 gcp_coords=None
 pixel_coords=None
@@ -190,6 +199,10 @@ db_insert = "INSERT INTO uas_images_test (record_id,image_file_name,flight_id,se
 
 db_check = "SELECT record_id FROM uas_images_test WHERE flight_id LIKE %s"
 
+get_flight_coords = "SELECT MIN(ST_X(position)), MAX(ST_X(position)),MIN(ST_Y(position)), MAX(ST_Y(position)) FROM uas_images_test WHERE flight_id LIKE %s"
+
+db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date,start_time,end_date,end_time,flight_filename,experiment_id,planned_elevation_m,sensor_id,flight_polygon) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s))"
+
 insertCount=0
 for lineitem in metadataList:
     dataRow=(record_id,lineitem[0], lineitem[1], lineitem[2],lineitem[3], lineitem[4], lineitem[5], lineitem[6],lineitem[7],lineitem[8], lineitem[9], lineitem[10])
@@ -198,9 +211,21 @@ for lineitem in metadataList:
     insertCount+=1
 cursorB.execute(db_check, (flightId, ))
 checkCount = cursorB.rowcount
-
+cursorC.execute(get_flight_coords,(flightId, ))
+if cursorC.rowcount != 0:
+    for row in cursorC:
+        longMin=float(row[0])
+        longMax=float(row[1])
+        latMin=float(row[2])
+        latMax=float(row[3])
+flightPolygon=dumps(Polygon([(longMin,latMin),(longMin,latMax),(longMax,latMax),(longMax,latMin),(longMin,latMin)]))
+flightRow=(record_id,flightId,startDate,startTime,endDate,endTime, flightFileName,experimentId,plannedElevation,sensorId,flightPolygon)
+cursorD.execute(db_insert_run,flightRow)
+cnx.commit()
 cursorA.close()
 cursorB.close()
+cursorC.close()
+cursorD.close()
 print ("")
 print ("Number of rows to be inserted into the database", len(metadataList))
 print("Number of metadata records inserted", insertCount)
