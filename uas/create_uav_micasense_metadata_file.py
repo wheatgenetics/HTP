@@ -65,6 +65,11 @@ if uasPath[-1] != '/':
 imageType = args.type
 uasmetfile = args.out
 
+#uasFolderPaths = args.dir
+#uasFolderList=[]
+#uasFolderList=uasFolderPaths.split(',')
+#print [os.path.abspath(name) for name in os.listdir(".") if os.path.isdir(name)]
+
 record_id = None
 notes = ''
 metadataRecord=[]

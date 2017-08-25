@@ -34,7 +34,7 @@ def convert_polygon_coord_system(plt):
         coordPair=str(pos).split(' ')
         x=float(coordPair[0])
         y=float(coordPair[1])
-        latLonPosition=utm.to_latlon(x,y,14,'S')
+        latLonPosition=utm.to_latlon(x,y,longZone,latZone)
         latCoord=str(latLonPosition[0])
         lonCoord=str(latLonPosition[1])
         LonLatCoordString+=lonCoord + ' ' + latCoord + ','
@@ -126,7 +126,9 @@ def haversine_distance(lon1, lat1, lon2, lat2):
     return c * r
 
 plots={}
-plotPrefix='17ASH%' # Need to make this a command line parameter
+plotPrefix='17LDH%' # Need to make this a command line parameter
+longZone=43
+latZone='R'
 
 plotPath= '/Users/mlucas/Desktop/LongLatPlots.csv'
 
