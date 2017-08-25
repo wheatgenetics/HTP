@@ -90,6 +90,20 @@ def create_flightId_from_logfile(flightLog):
 
     return flightID,startDate,startTime,endDate,endTime
 
+def create_flightId_from_image_datetime(metadataList):
+
+    startDate=str(metadataList[0][3])
+    startDate=startDate.replace('/','')
+    startTime=str(metadataList[0][4])
+    startTime=startTime.replace(':','')
+    endDate=str(metadataList[-1][3])
+    endDate=endDate.replace('/','')
+    endTime=str(metadataList[-1][4])
+    endTime=endTime.replace(':','')
+
+    flight_id='uas_'+startDate+'_'+startTime+'_'+endDate+'_'+endTime
+
+    return flight_id,startDate,startTime,endDate,endTime
 
 
 
@@ -136,11 +150,11 @@ for uasFolder in uasFolderPathList:
     metadataRecord = []
     metadataList = []
 
-    # Calculate flightID using the first and last records in the DJI log file
+    # Calculate flightID using the first and last records in the DJI log file - Deprecated due to log file unavailability
 
-    uasLogFileList = [os.path.join(uasFolder, logfile) for logfile in os.listdir(uasFolder) if logfile.endswith(".csv")]
-    uasLogFile= uasLogFileList[0]
-    flightId,startDate,startTime,endDate,endTime=create_flightId_from_logfile(uasLogFile)
+    #uasLogFileList = [os.path.join(uasFolder, logfile) for logfile in os.listdir(uasFolder) if logfile.endswith(".csv")]
+    #uasLogFile= uasLogFileList[0]
+    #flightId,startDate,startTime,endDate,endTime=create_flightId_from_logfile(uasLogFile)
 
     print
 
@@ -176,9 +190,7 @@ for uasFolder in uasFolderPathList:
                 position_x, position_y, altitudeFeet, latitude, longitude, dateUTC, \
                 timeUTC, lat_zone, long_zone, altitudeRef, cam_serial_no = get_image_exif_data(image)
             image.close()
-
-            # FlightID calculation is incorrect - Should only use the first image date and time
-
+            flightId=None
             y = dateUTC[0:4]
             m = dateUTC[5:7]
             d = dateUTC[8:10]
@@ -208,6 +220,10 @@ for uasFolder in uasFolderPathList:
             metadataList.append(metadataRecord)
 
     print
+
+    # Compute the flight ID from the image timestamps to support case where logfile is not available
+
+    flightId,startDate,startTime,endDate,endTime=create_flightId_from_image_datetime(metadataList)
 
     print("")
     print("Connecting to Database...")
@@ -247,7 +263,7 @@ for uasFolder in uasFolderPathList:
 
     insertCount=0
     for lineitem in metadataList:
-        dataRow=(record_id,lineitem[0], lineitem[1], lineitem[2],lineitem[3], lineitem[4], lineitem[5], lineitem[6],lineitem[7],lineitem[8], lineitem[9], lineitem[10])
+        dataRow=(record_id,lineitem[0], flightId, lineitem[2],lineitem[3], lineitem[4], lineitem[5], lineitem[6],lineitem[7],lineitem[8], lineitem[9], lineitem[10])
         cursorA.execute(db_insert,dataRow )
         cnx.commit()
         insertCount+=1
