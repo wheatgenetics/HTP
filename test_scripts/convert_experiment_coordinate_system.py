@@ -2,28 +2,19 @@
 #
 # Program: convert_experiment_coordinate_syste,
 
-# Version: 0.1 February 22,2017
+# Version: 0.1 August 24,2017
 #
 # This program will query a set of experiments,convert the coordinate system to long/lat and save the results to a file.
 #
 
-from math import radians, cos, sin, asin, sqrt
-from scipy.spatial import cKDTree
-import numpy
+from math import sqrt
 import sys
-import datetime
-import subprocess
-import argparse
-
 import mysql.connector
 from mysql.connector import errorcode
 import config
-import time
 import os
 import utm
 import csv
-
-from shapely import wkt
 from shapely.geometry import Point, LineString, Polygon
 
 def convert_polygon_coord_system(plt):
@@ -40,8 +31,6 @@ def convert_polygon_coord_system(plt):
         LonLatCoordString+=lonCoord + ' ' + latCoord + ','
     LonLatPlt=LonLatCoordString[0:-1] + '))'
     return LonLatPlt
-
-
 
 
 def open_db_connection(config):
@@ -86,10 +75,10 @@ def commit_and_close_db_connection(cursor,cnx):
 
 exptList=[]
 
-experimentPath= '/Users/mlucas/Desktop/experimentLonLat.csv'
+experimentPath= '/Users/mlucas/Desktop/HTP_Database_Updates/experimentLonLat.csv'
 
 
-# Query the database for the plot polygons and store them in a dictionary with plot_id as key
+# Query the database for the experiment records
 
 cursor, cnx = open_db_connection(config)
 exptQuery=("SELECT * FROM experiment")
@@ -100,6 +89,7 @@ try:
         for row in cursor:
             recordId=str(int(row[0]))
             experimentId=row[1].replace("_","-")
+            experimentId=experimentId.strip(' \t\n\r')
             location=row[2]
             environment=row[3]
             plantingDate=row[4]
@@ -133,7 +123,6 @@ try:
                 c1_1_lonCoord=str(c1_1_latLonPosition[1])
                 c1_1_back_convert=utm.from_latlon(c1_1_latLonPosition[0],c1_1_latLonPosition[1])
                 c1_1_back_convert_error_cm=(sqrt((c1_1_back_convert[0]-c1_1_x)**2 +(c1_1_back_convert[1]-c1_1_y)**2 ))*100.0
-            #print recordId, experimentId, c1_1_lonCoord, c1_1_latCoord, long_zone, lat_zone
 
             if (c1_2_x != 0 and c1_2_x != None) and (long_zone != None and lat_zone != None):
                 c1_2_latLonPosition = utm.to_latlon(c1_2_x, c1_2_y, int(long_zone), lat_zone)
@@ -143,7 +132,6 @@ try:
                 c1_2_lonCoord=str(c1_2_latLonPosition[1])
                 c1_2_back_convert=utm.from_latlon(c1_2_latLonPosition[0],c1_2_latLonPosition[1])
                 c1_2_back_convert_error_cm=(sqrt((c1_2_back_convert[0]-c1_2_x)**2 +(c1_2_back_convert[1]-c1_2_y)**2 ))*100.0
-            #print recordId, experimentId, c1_2_lonCoord, c1_2_latCoord, long_zone, lat_zone
 
             if (c2_1_x != 0 and c2_1_x != None) and (long_zone != None and lat_zone != None):
                 c2_1_latLonPosition = utm.to_latlon(c2_1_x, c2_1_y, int(long_zone), lat_zone)
@@ -153,7 +141,6 @@ try:
                 c2_1_lonCoord = str(c2_1_latLonPosition[1])
                 c2_1_back_convert = utm.from_latlon(c2_1_latLonPosition[0], c2_1_latLonPosition[1])
                 c2_1_back_convert_error_cm = (sqrt((c2_1_back_convert[0] - c2_1_x) ** 2 + (c2_1_back_convert[1] - c2_1_y) ** 2)) * 100.0
-            #print recordId, experimentId, c2_1_lonCoord, c2_1_latCoord, long_zone, lat_zone
 
             if (c2_2_x != 0 and c2_2_x != None) and (long_zone != None and lat_zone != None):
                 c2_2_latLonPosition = utm.to_latlon(c2_2_x, c2_2_y, int(long_zone), lat_zone)
@@ -164,30 +151,24 @@ try:
                 c2_2_back_convert = utm.from_latlon(c2_2_latLonPosition[0], c2_2_latLonPosition[1])
                 c2_2_back_convert_error_cm = (sqrt((c2_2_back_convert[0] - c2_2_x) ** 2 + (c2_2_back_convert[1] - c2_2_y) ** 2)) * 100.0
 
-            #print recordId, experimentId, c2_2_lonCoord, c2_2_latCoord, long_zone, lat_zone
-
-
             if c1_1_latitude != None:
                 exptPolygon=Polygon([(c1_1_longitude,c1_1_latitude),(c1_2_longitude,c1_2_latitude),(c2_1_longitude,c2_1_latitude),(c2_2_longitude,c2_2_latitude),(c1_1_longitude,c1_1_latitude)])
                 exptListItem = [recordId, experimentId, location, environment, plantingDate, harvestDate, exptPolygon.wkt]
-                print recordId, exptPolygon.wkt
+                print recordId, experimentId, c1_1_x, c1_1_y, c1_1_lonCoord, c1_1_latCoord, long_zone, lat_zone
+                print "Original UTM c1_1_x                      = " + str(c1_1_x)
+                print "Origianl UTM c1_1_y                      = " + str(c1_1_y)
+                print "Back Converted UTM x                     = " + str(c1_1_back_convert[0])
+                print "Back Converted UTM y                     = " + str(c1_1_back_convert[1])
+                print "UTM x Back Conversion Delta              = " + str((c1_1_back_convert[0] - c1_1_x) * 100.0) + " centimeters"
+                print "UTM y Back Conversion Delta              = " + str((c1_1_back_convert[1] - c1_1_y) * 100.0) + " centimeters"
+                print "UTM Pythagorean Back Conversion Error    = " + str(c1_1_back_convert_error_cm) + " centimeters"
+                print
             else:
                 exptListItem = [recordId, experimentId, location, environment, plantingDate, harvestDate, None]
-                print recordId
-            #exptListItem=[recordId,experimentId,location,environment,plantingDate,harvestDate,
-            #              c1_1_latLonPosition[1],c1_1_latLonPosition[0],
-            #              c1_2_latLonPosition[1], c1_2_latLonPosition[0],
-            #              c2_1_latLonPosition[1], c2_1_latLonPosition[0],
-            #              c2_2_latLonPosition[1], c2_2_latLonPosition[0]]
-            #exptListItem = [recordId, experimentId, location, environment, plantingDate, harvestDate,exptPolygon.wkt]
-            exptList.append(exptListItem)
-            #print exptListItem
 
-                #print recordId,experimentId,c1_1_x,c1_1_y,c1_1_lonCoord,c1_1_latCoord,long_zone,lat_zone
-                #print c1_1_back_convert[0],c1_1_back_convert[1]
-                #print "UTM x Back Conversion Delta = " + str((c1_1_back_convert[0]-c1_1_x) * 100.0) + "centimeters"
-                #print "UTM y Back Conversion Delta = " + str((c1_1_back_convert[1] - c1_1_y) * 100.0) + "centimeters"
-                #print "UTM Back Conversion Error = " + str(back_convert_error_cm) + " centimeters"
+            exptList.append(exptListItem)
+
+
 
 except:
     print 'Unexpected error during database query:', sys.exc_info()[0]
@@ -202,15 +183,12 @@ commit_and_close_db_connection(cursor, cnx)
 with open(experimentPath,'wb') as csvFile:
     print 'Writing Experiment Long/Lat File'
     header=csv.writer(csvFile)
-    header.writerow(
-        ['record_id', 'experiment_id', 'location', 'environment', 'planting_date', 'harvest_date', 'expt_polygon'])
-
-    #header.writerow(['record_id','experiment_id','location','environment','planting_date','harvest_date','c1_1_x','c1_1_y','c1_2_x','c1_2_y','c2_1_x' , 'c2_1_y', 'c2_2_x', 'c2_2_y'])
+    header.writerow(['record_id', 'experiment_id', 'location', 'environment', 'planting_date', 'harvest_date', 'expt_polygon'])
 csvFile.close()
 
 with open(experimentPath,'ab') as csvFile:
     for row in exptList:
-        fileline = csv.writer(csvFile)
+        fileline = csv.writer(csvFile,quoting=csv.QUOTE_ALL,lineterminator = ',\n')
         fileline.writerow([row[0], row[1], row[2], row[3], row[4], row[5], row[6]])
     # Kludge to get rid of blank last line in the file which causes an empty row to be loaded into the database
     # when using LOAD DATA INFILE procedure!!
