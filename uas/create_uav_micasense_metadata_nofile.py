@@ -106,7 +106,11 @@ def create_flightId_from_image_datetime(metadataList):
     return flight_id,startDate,startTime,endDate,endTime
 
 
-
+def check_manifest(manifest):
+    # TBD
+    # Check for presence of manifest file and that all data set files are present
+    manifest_status=False
+    return manifest_status
 
 # Get command line input.
 
