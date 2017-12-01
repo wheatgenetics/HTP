@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 # Program: create_uas_metadata_file_micasense
 #
 # Version: 0.1 April 10,2017 - Based on create_uav_metadata_file.py
+# Version: 0.2 December 1,2017 - Removed reference to experiment_id
 #
 # Creates CSV file containing image metadata to be imported into the uas_images table in the wheatgenetics database.
 #
@@ -48,13 +49,12 @@ def parse_flight_folder_name(flightFolder):
     dataSetParams=flightFolder.split('_')
     dateStr     = dataSetParams[0]
     timeStr     = dataSetParams[1]
-    exptStr     = dataSetParams[2]
-    plElevStr      = dataSetParams[3][:-1]
-    camStr      = dataSetParams[4]
-    angleStr    = dataSetParams[5]
-    imgTypeStr  = dataSetParams[6]
-    seqStr      = dataSetParams[7]
-    return dateStr,timeStr,exptStr,plElevStr,camStr,angleStr,imgTypeStr,seqStr
+    plElevStr   = dataSetParams[2][:-1]
+    camStr      = dataSetParams[3]
+    angleStr    = dataSetParams[4]
+    imgTypeStr  = dataSetParams[5]
+    seqStr      = dataSetParams[6]
+    return dateStr,timeStr,plElevStr,camStr,angleStr,imgTypeStr,seqStr
 
 def create_flightId_from_logfile(flightLog):
     flightLogList=[]
@@ -117,13 +117,13 @@ def check_manifest(manifest):
 cmdline = argparse.ArgumentParser()
 
 cmdline.add_argument('-d', '--dir', help='Beocat directory path to HTP imagefiles',
-                     default='/home/mlucas/uav_staging/')
+                     default='/cygdrive/f/uav_staging/')
 
 cmdline.add_argument('-t', '--type', help='Image file type extension, e.g. TIF, JPG, DNG',
                      default='TIF')
 
-#cmdline.add_argument('-o', '--out', help='Output file path and filename',
-#                     default='/bulk/jpoland/images/staging/uas_staging/uas_image_metadata.csv')
+cmdline.add_argument('-o', '--out', help='Output file path and filename',
+                     default='/cygdrive/f/uav_processed/')
 #
 args = cmdline.parse_args()
 
@@ -134,6 +134,10 @@ if uasPath[-1] != '/':
 imageType = args.type
 #uasmetfile = args.out
 
+uasOutPath=args.out
+if uasOutPath[-1] != '/':
+    uasOutPath+='/'
+
 uasFolderPathList=[]
 uasFolderList=[]
 uasSubFolderList=[]
@@ -142,7 +146,7 @@ uasLogFileList=[]
 
 uasFolderPathList=[os.path.join(uasPath,name)+'/' for name in os.listdir(uasPath) if os.path.isdir(os.path.join(uasPath,name))]
 if uasFolderPathList==[]:
-    print "No uas data sets found in uav_staging...Exiting"
+    print("No uas data sets found in uav_staging...Exiting")
     sys.exit()
 
 
@@ -160,12 +164,12 @@ for uasFolder in uasFolderPathList:
     #uasLogFile= uasLogFileList[0]
     #flightId,startDate,startTime,endDate,endTime=create_flightId_from_logfile(uasLogFile)
 
-    print
+    print()
 
     # Parse the flight folder name to extract parameters needed for the uas_run table entry
 
     flightFolder=os.path.split(uasFolder[:-1])
-    dateStr, timeStr, experimentId, plannedElevation, camStr, cameraAngle, imgTypeStr, seqStr = parse_flight_folder_name(flightFolder[1])
+    dateStr, timeStr, plannedElevation, camStr, cameraAngle, imgTypeStr, seqStr = parse_flight_folder_name(flightFolder[1])
 
 
     # Process each image sub-folder
@@ -174,15 +178,15 @@ for uasFolder in uasFolderPathList:
     uasSubFolderList=[os.path.join(uasFolder,name)+'/' for name in os.listdir(uasFolder) if os.path.isdir(os.path.join(uasFolder,name))]
 
     for subFolder in uasSubFolderList:
-        print "Processing "+subFolder
+        print("Processing "+subFolder)
         # Get the list of image files in the sub-folder
         imagefiles = get_image_file_list(subFolder, imageType)
         if len(imagefiles) == 0:
-            print "There were no image files found in ", uasPath
-            print "Exiting"
+            print("There were no image files found in ", uasPath)
+            print("Exiting")
             sys.exit(10)
-        print "Number of images in " + subFolder + "=" + str(len(imagefiles))
-        print
+        print("Number of images in " + subFolder + "=" + str(len(imagefiles)))
+        print()
         for f in imagefiles:
             filename = subFolder + f
             imagefilename = f
@@ -190,7 +194,6 @@ for uasFolder in uasFolderPathList:
             # Get Image File EXIF metadata
             #
             with open(filename, 'rb') as image:
-                # print "Processing ",filename
                 position_x, position_y, altitudeFeet, latitude, longitude, dateUTC, \
                 timeUTC, lat_zone, long_zone, altitudeRef, cam_serial_no = get_image_exif_data(image)
             image.close()
@@ -223,7 +226,7 @@ for uasFolder in uasFolderPathList:
                               md5sum, positionRef, notes]
             metadataList.append(metadataRecord)
 
-    print
+    print()
 
     # Compute the flight ID from the image timestamps to support case where logfile is not available
 
@@ -252,18 +255,13 @@ for uasFolder in uasFolderPathList:
     pixel_coords=None
     record_id=None
 
-    #db_insert = "INSERT INTO uas_images_test (record_id,image_file_name,flight_id,sensor_id,date_utc,time_utc,position,altitude,altitude_ref,md5sum,position_source,notes) VALUES (%s,%s,%s,%s,%s,%s,ST_PointFromText(%(position)s),%s,%s,%s,%s,%s)"
     db_insert = "INSERT INTO uas_images_test (record_id,image_file_name,flight_id,sensor_id,date_utc,time_utc,position,altitude,altitude_ref,md5sum,position_source,notes) VALUES (%s,%s,%s,%s,%s,%s,ST_PointFromText(%s),%s,%s,%s,%s,%s)"
 
     db_check = "SELECT record_id FROM uas_images_test WHERE flight_id LIKE %s"
 
-    #get_flight_coords = "SELECT MIN(ST_X(position)), MAX(ST_X(position)),MIN(ST_Y(position)), MAX(ST_Y(position)) FROM uas_images_test WHERE flight_id LIKE %s"
-
     get_flight_coords = "SELECT ST_X(position),ST_Y(position) from uas_images_test where flight_id like %s"
 
-    #get_flight_coords = "SELECT position from uas_images_test where flight_id like %s"
-
-    db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date,start_time,end_date,end_time,flight_filename,experiment_id,planned_elevation_m,sensor_id,camera_angle,flight_polygon) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s))"
+    db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date,start_time,end_date,end_time,flight_filename,planned_elevation_m,sensor_id,camera_angle,flight_polygon) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s))"
 
     insertCount=0
     for lineitem in metadataList:
@@ -274,29 +272,22 @@ for uasFolder in uasFolderPathList:
     cursorB.execute(db_check, (flightId, ))
     checkCount = cursorB.rowcount
     cursorC.execute(get_flight_coords,(flightId, ))
-    #if cursorC.rowcount != 0:
-    #    for row in cursorC:
-    #        longMin=float(row[0])
-    #        longMax=float(row[1])
-    #        latMin=float(row[2])
-    #        latMax=float(row[3])
+
     pointList=[]
     if cursorC.rowcount != 0:
         for row in cursorC:
             pointList.append((row[0],row[1]))
-    #print pointList
-    #flightPolygon=dumps(Polygon([(longMin,latMin),(longMin,latMax),(longMax,latMax),(longMax,latMin),(longMin,latMin)]))
-    #flightPolygon=dumps(MultiPoint(pointList)).convex_hull
+
     flightPolygon=dumps((MultiPoint(pointList)).convex_hull)
-    flightRow=(record_id,flightId,startDate,startTime,endDate,endTime, flightFolder[1],experimentId,plannedElevation,sensorId,cameraAngle,flightPolygon)
+    flightRow=(record_id,flightId,startDate,startTime,endDate,endTime, flightFolder[1],plannedElevation,sensorId,cameraAngle,flightPolygon)
     cursorD.execute(db_insert_run,flightRow)
     cnx.commit()
     cursorA.close()
     cursorB.close()
     cursorC.close()
     cursorD.close()
-    print ("")
-    print ("Number of rows to be inserted into the database", len(metadataList))
+    print("")
+    print("Number of rows to be inserted into the database", len(metadataList))
     print("Number of metadata records inserted", insertCount)
     print("Number of database records returned on insert check query", checkCount)
     print("")
@@ -314,21 +305,25 @@ for uasFolder in uasFolderPathList:
     uasSubFolderList = [os.path.join(uasFolder, name) + '/' for name in os.listdir(uasFolder) if os.path.isdir(os.path.join(uasFolder, name))]
 
     for subFolder in uasSubFolderList:
-        print "Moving images from  " + subFolder
+        print("Moving images from  " + subFolder)
         # Get the list of image files in the sub-folder
         imagefiles = get_image_file_list(subFolder, imageType)
         if len(imagefiles) == 0:
-            print "There were no image files found in ", uasPath
-            print "Exiting"
+            print("There were no image files found in ", uasPath)
+            print("Exiting")
             sys.exit(10)
-        print "Number of images in " + subFolder + "=" + str(len(imagefiles))
-        print
+        print("Number of images in " + subFolder + "=" + str(len(imagefiles)))
+        print()
         for f in imagefiles:
             oldFilename = subFolder + f
             newFilename = uasFolder + f
             shutil.move(oldFilename,newFilename)
-        print "Deleting sub-folder " + subFolder
+        print("Deleting sub-folder " + subFolder)
         os.rmdir(subFolder)
+
+# Move the data set to the uav_processed folder
+
+    shutil.move(uasFolder,uasOutPath)
 
 #****************************************
 
@@ -342,7 +337,7 @@ for uasFolder in uasFolderPathList:
 #csvfile.close()
 
 #with open(uasmetfile, 'ab') as csvfile:
-#    print 'Generating metadata file', uasmetfile
+#    print( 'Generating metadata file', uasmetfile)
 #    for lineitem in metadataList:
 #        fileline = csv.writer(csvfile,quoting=csv.QUOTE_ALL,lineterminator = ',\n')
 #        fileline.writerow(
@@ -353,10 +348,7 @@ for uasFolder in uasFolderPathList:
 #csvfile.close()
 
 
-# Connect to the wheatgenetics database
-
-
 # Exit the program gracefully
 
-print ('Processing Completed. Exiting...')
+print('Processing Completed. Exiting...')
 sys.exit()
