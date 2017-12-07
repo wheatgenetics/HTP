@@ -256,8 +256,9 @@ def get_image_exif_data(filename):
 def get_date_taken(path):
     return Image.open(path)._getexif()[36867]
 
-flightLog='/Users/mlucas/Desktop/Harman/2017-10-19_16-03-28/2017-10-19_16-03-28_v2.csv'
-uasPath = '/Users/mlucas/Desktop/Harman/2017-10-19_16-03-28/'
+flightLog='/Users/mlucas/Desktop/Harman/2017-10-11_16-14-35/2017-10-11_16-14-35_v2.csv'
+uasPath = '/Users/mlucas/Desktop/Harman/2017-10-11_16-14-35/'
+uasmetfile = '/Users/mlucas/Desktop/Harman/2017-10-11_16-14-35/2017-10-11_16-14-35_metadata.csv'
 imageType='jpg'
 
 gpsEvents,localTimeZone =read_flight_log(flightLog)
@@ -273,6 +274,7 @@ imageCount = len(imageFiles)
 if imageCount==0:
     print("There were no image files found in ",uasPath)
     print("Exiting")
+metadataList=[]
 for image in imageFiles:
     #dt = subprocess.call(['exiftool', '-DateTimeOriginal', image])
     dt = subprocess.Popen(['exiftool', '-DateTimeOriginal', image],stdout=subprocess.PIPE)
@@ -284,7 +286,32 @@ for image in imageFiles:
     logTimeIndex = bisect.bisect_left(sortedKeys, imageTimeStr)
     gpsEventsKey = sortedKeys[logTimeIndex]
     gpsEvents[gpsEventsKey].extend((logTimeIndex, imageTimeStr,image))
-    print(gpsEvents[gpsEventsKey])
+    latitude=str(gpsEvents[gpsEventsKey][2])
+    longitude=str(gpsEvents[gpsEventsKey][3])
+    imageName=gpsEvents[gpsEventsKey][8]
+    print("Image Name",imageName,"Latitude:",latitude,"Longitude:",longitude,)
+    ll=subprocess.Popen(['exiftool', '-GPSLatitude='+latitude,'-GPSLongitude='+longitude, imageName], stdout=subprocess.PIPE)
+    output, err = ll.communicate()
+    imageFileName=imageName.split('/')[-1]
+    metadataRecord=[imageFileName,latitude,longitude]
+    metadataList.append(metadataRecord)
     pass
+
+#
+# Write out the metadata file
+#
+with open(uasmetfile, 'wb') as csvfile:
+    header = csv.writer(csvfile,lineterminator = '\n')
+    header.writerow(['image_file_name', 'latitude','longitude'])
+csvfile.close()
+
+with open(uasmetfile, 'ab') as csvfile:
+    print('Generating metadata file', uasmetfile)
+    for lineitem in metadataList:
+        fileline = csv.writer(csvfile,lineterminator = ',\n')
+        fileline.writerow(
+            [lineitem[0], lineitem[1], lineitem[2]])
+
+csvfile.close()
 
 sys.exit()
