@@ -1,6 +1,5 @@
 #!/usr/bin/python
-
-
+from __future__ import print_function
 from __future__ import unicode_literals
 
 #
@@ -31,7 +30,6 @@ import time
 import sys
 import os
 import argparse
-import imagepreprocess
 from imagepreprocess import *
 from shapely import wkt
 from shapely.wkt import dumps
@@ -132,7 +130,6 @@ if uasPath[-1] != '/':
     uasPath+='/'
 
 imageType = args.type
-#uasmetfile = args.out
 
 uasOutPath=args.out
 if uasOutPath[-1] != '/':
@@ -143,14 +140,12 @@ uasFolderList=[]
 uasSubFolderList=[]
 uasLogFileList=[]
 
+# Search for data set folders that need to be processed and store in a list
 
 uasFolderPathList=[os.path.join(uasPath,name)+'/' for name in os.listdir(uasPath) if os.path.isdir(os.path.join(uasPath,name))]
 if uasFolderPathList==[]:
     print("No uas data sets found in uav_staging...Exiting")
     sys.exit()
-
-
-#uasFolderList=[os.path.basename(name) for name in os.listdir(uasPath) if os.path.isdir(os.path.join(uasPath,name))]
 
 for uasFolder in uasFolderPathList:
     record_id = None
@@ -163,8 +158,6 @@ for uasFolder in uasFolderPathList:
     #uasLogFileList = [os.path.join(uasFolder, logfile) for logfile in os.listdir(uasFolder) if logfile.endswith(".csv")]
     #uasLogFile= uasLogFileList[0]
     #flightId,startDate,startTime,endDate,endTime=create_flightId_from_logfile(uasLogFile)
-
-    print()
 
     # Parse the flight folder name to extract parameters needed for the uas_run table entry
 
@@ -183,48 +176,45 @@ for uasFolder in uasFolderPathList:
         imagefiles = get_image_file_list(subFolder, imageType)
         if len(imagefiles) == 0:
             print("There were no image files found in ", uasPath)
-            print("Exiting")
-            sys.exit(10)
-        print("Number of images in " + subFolder + "=" + str(len(imagefiles)))
-        print()
-        for f in imagefiles:
-            filename = subFolder + f
-            imagefilename = f
-            #
-            # Get Image File EXIF metadata
-            #
-            with open(filename, 'rb') as image:
-                position_x, position_y, altitudeFeet, latitude, longitude, dateUTC, \
-                timeUTC, lat_zone, long_zone, altitudeRef, cam_serial_no = get_image_exif_data(image)
-            image.close()
-            flightId=None
-            y = dateUTC[0:4]
-            m = dateUTC[5:7]
-            d = dateUTC[8:10]
-            dateString = y + m + d
-            h = timeUTC[0:2]
-            mm = timeUTC[3:5]
-            s = timeUTC[6:8]
-            timeString = h + mm + s
-            sensorId = 'CAM_' + cam_serial_no
-            # Create a WKT representation of the position POINT object using shapely dumps function
-            position = dumps(Point(longitude, latitude))
-            positionRef = 1
-            notes = None
-            # Rename image files
-            imageFileName = sensorId + '_' + dateString + '_' + timeString + '_' + imagefilename
-            oldImageFilePath = subFolder + imagefilename
-            newImageFilePath = subFolder + imageFileName
-            os.rename (oldImageFilePath,newImageFilePath)
-            # Populate the metadata data structure for the renamed image
-            metadataRecord = []
-            altitude = float(altitudeFeet) * 0.3048
-            md5sum = calculate_checksum(newImageFilePath)
-            #md5sum = calculate_checksum(oldImageFilePath)
-            # metadataRecord=[imageFileName,flightId,sensorId,dateUTC,timeUTC,position.wkt,altitude,altitudeRef,md5sum,positionRef,notes]
-            metadataRecord = [imageFileName, flightId, sensorId, dateUTC, timeUTC, position, altitude, altitudeRef,
-                              md5sum, positionRef, notes]
-            metadataList.append(metadataRecord)
+            pass
+        else:
+            print("Number of images in " + subFolder + "=" + str(len(imagefiles)))
+            for f in imagefiles:
+                filename = subFolder + f
+                imagefilename = f
+                #
+                # Get Image File EXIF metadata
+                #
+                with open(filename, 'rb') as image:
+                    position_x, position_y, altitudeFeet, latitude, longitude, dateUTC, \
+                    timeUTC, lat_zone, long_zone, altitudeRef, cam_serial_no = get_image_exif_data(image)
+                image.close()
+                flightId=None
+                y = dateUTC[0:4]
+                m = dateUTC[5:7]
+                d = dateUTC[8:10]
+                dateString = y + m + d
+                h = timeUTC[0:2]
+                mm = timeUTC[3:5]
+                s = timeUTC[6:8]
+                timeString = h + mm + s
+                sensorId = 'CAM_' + cam_serial_no
+                # Create a WKT representation of the position POINT object using shapely dumps function
+                position = dumps(Point(longitude, latitude))
+                positionRef = 1
+                notes = None
+                # Rename image files
+                imageFileName = sensorId + '_' + dateString + '_' + timeString + '_' + imagefilename
+                oldImageFilePath = subFolder + imagefilename
+                newImageFilePath = subFolder + imageFileName
+                os.rename (oldImageFilePath,newImageFilePath)
+                # Populate the metadata data structure for the renamed image
+                metadataRecord = []
+                altitude = float(altitudeFeet) * 0.3048
+                md5sum = calculate_checksum(newImageFilePath)
+                metadataRecord = [imageFileName, flightId, sensorId, dateUTC, timeUTC, position, altitude, altitudeRef,
+                                  md5sum, positionRef, notes]
+                metadataList.append(metadataRecord)
 
     print()
 
@@ -309,44 +299,23 @@ for uasFolder in uasFolderPathList:
         # Get the list of image files in the sub-folder
         imagefiles = get_image_file_list(subFolder, imageType)
         if len(imagefiles) == 0:
-            print("There were no image files found in ", uasPath)
-            print("Exiting")
-            sys.exit(10)
-        print("Number of images in " + subFolder + "=" + str(len(imagefiles)))
-        print()
-        for f in imagefiles:
-            oldFilename = subFolder + f
-            newFilename = uasFolder + f
-            shutil.move(oldFilename,newFilename)
-        print("Deleting sub-folder " + subFolder)
-        os.rmdir(subFolder)
+            print("There were no image files found in ", subFolder)
+            #print("Exiting")
+            #sys.exit(10)
+            pass
+        else:
+            print("Number of images in " + subFolder + "=" + str(len(imagefiles)))
+            print()
+            for f in imagefiles:
+                oldFilename = subFolder + f
+                newFilename = uasFolder + f
+                shutil.move(oldFilename,newFilename)
+            print("Deleting sub-folder " + subFolder)
+            os.rmdir(subFolder)
 
 # Move the data set to the uav_processed folder
 
-    shutil.move(uasFolder,uasOutPath)
-
-#****************************************
-
-#
-# Write out the metadata file
-#
-#with open(uasmetfile, 'wb') as csvfile:
-#    header = csv.writer(csvfile,lineterminator = '\n')
-#    header.writerow(['image_file_name', 'flight_id', 'sensor_id', 'date_utc', 'time_utc', 'position','altitude',
-#                     'altitude_ref', 'md5sum', 'position_source', 'notes'])
-#csvfile.close()
-
-#with open(uasmetfile, 'ab') as csvfile:
-#    print( 'Generating metadata file', uasmetfile)
-#    for lineitem in metadataList:
-#        fileline = csv.writer(csvfile,quoting=csv.QUOTE_ALL,lineterminator = ',\n')
-#        fileline.writerow(
-#            [lineitem[0], lineitem[1], lineitem[2],lineitem[3], lineitem[4], lineitem[5], lineitem[6], lineitem[7],
-#             lineitem[8], lineitem[9], lineitem[10]])
-#
-#
-#csvfile.close()
-
+     shutil.move(uasFolder,uasOutPath)
 
 # Exit the program gracefully
 
