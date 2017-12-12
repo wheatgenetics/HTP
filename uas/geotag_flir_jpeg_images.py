@@ -256,9 +256,9 @@ def get_image_exif_data(filename):
 def get_date_taken(path):
     return Image.open(path)._getexif()[36867]
 
-flightLog='/Users/mlucas/Desktop/Harman/2017-10-11_16-14-35/2017-10-11_16-14-35_v2.csv'
-uasPath = '/Users/mlucas/Desktop/Harman/2017-10-11_16-14-35/'
-uasmetfile = '/Users/mlucas/Desktop/Harman/2017-10-11_16-14-35/2017-10-11_16-14-35_metadata.csv'
+flightLog='/Users/mlucas/Desktop/Harman/2017-10-19_16-03-28/2017-10-19_16-03-28_v2.csv'
+uasPath = '/Users/mlucas/Desktop/Harman/2017-10-19_16-03-28/'
+uasmetfile = '/Users/mlucas/Desktop/Harman/2017-10-19_16-03-28/2017-10-19_16-03-28_metadata.csv'
 imageType='jpg'
 
 gpsEvents,localTimeZone =read_flight_log(flightLog)
