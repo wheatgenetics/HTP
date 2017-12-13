@@ -10,7 +10,6 @@
 # TO DO - Make the search based on - later than planting date for given year e.g. '18%' and make these command line
 # inputs
 
-from math import sqrt
 import sys
 import mysql.connector
 from mysql.connector import errorcode
