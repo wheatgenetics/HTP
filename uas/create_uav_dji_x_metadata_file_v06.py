@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 from __future__ import unicode_literals
 #
 # Program: create_uas_dji_x_metadata_file
@@ -46,6 +47,7 @@ import sys
 import argparse
 import hashlib
 import os
+import glob
 import exifread
 import piexif
 import config
@@ -97,8 +99,6 @@ def get_image_file_list(uasPath, imageType,imageFileList):
     # Return a list of the names and sample date & time for all image files.
 
     # Get list of files in uas staging directory
-
-    print("Fetching list of image files...")
 
     filestocheck = subprocess.check_output(['ls', '-1', uasPath], universal_newlines=True)
 
@@ -300,7 +300,8 @@ def calculate_checksum(ffilename):
     checksum = hashfilelist(open(ffilename, 'rb'))
     return checksum
 
-def get_image_exif_data(image,frameRate):
+def get_image_exif_data(image,
+                        Rate):
     # Function not currently used.
     tags = exifread.process_file(image)
     try:
@@ -319,9 +320,9 @@ def get_image_exif_data(image,frameRate):
         float_camTimeUTCInSecs = fcamTimeUTCInSecs + (int(frameNumber) * (1.0 / frameRate))
 
     except Exception,e:
-        print '*** Error*** Unable to process image file EXIF data for '
-        print '*** Error Code:',e
-        print '*** Null EXIF-based column values will be generated for',image
+        print('*** Error*** Unable to process image file EXIF data for ')
+        print('*** Error Code:',e)
+        print('*** Null EXIF-based column values will be generated for',image)
     return float_camTimeUTCInSecs,frameNumber
 
 def get_image_sensor_id(uasPath):
@@ -478,10 +479,8 @@ def commit_and_close_db_connection(cursor,cnx):
 
 cmdline = argparse.ArgumentParser()
 
-cmdline.add_argument('-d', '--dir', help='Beocat directory path to HTP imagefiles',
-                     default='/homes/mlucas/uas_incoming/')
-
-cmdline.add_argument('-l', '--log', help='Flight Log File name')
+cmdline.add_argument('-d', '--dir', help='Directory path to X5 flight folder',
+                     default='/cygdrive/f/uav_staging/')
 
 cmdline.add_argument('-t', '--type', help='Image file type extension, e.g. DNG,CR2, JPG',
                      default='DNG')
@@ -492,7 +491,7 @@ cmdline.add_argument('-r', '--rename',help='Rename image files Y or N',default='
 
 cmdline.add_argument('-x', '--debug',help='Dump interpolated log file Y or N',default='N')
 
-cmdline.add_argument('-e','--expt',help='Plot prefix for experiment',default='17ASH%')
+cmdline.add_argument('-e','--expt',help='Plot prefix for experiment',default='18ASH%')
 
 cmdline.add_argument('-n','--lonzone',help='Longitude Zone',default=14)
 
@@ -501,9 +500,25 @@ cmdline.add_argument('-z','--latzone',help='Latitude Zone',default='S')
 
 args = cmdline.parse_args()
 
+
+uasFolderPath = args.dir
 uasFolderList=[]
-uasFolderPaths = args.dir
-uasFolderList=uasFolderPaths.split(',')
+
+# Search for data set folders that need to be processed and store in a list
+# NB '' item in os.path.join adds an os-independent trailing slash character
+
+uasFolderList=[os.path.join(uasFolderPath,name,'') for name in os.listdir(uasFolderPath) if os.path.isdir(os.path.join(uasFolderPath,name))]
+if uasFolderList==[]:
+    print("No uas data sets found in uav_staging...Exiting")
+    sys.exit()
+
+csvFlightLog=glob.glob(uasFolderPath+'*_v2.csv')
+if len(csvFlightLog) > 1:
+    print("More than one flight log was found ...Exiting")
+else:
+    flightLog=csvFlightLog[0]
+
+
 outPath=args.out
 plotRangePath = outPath + 'RangePlotIntersections.csv'
 lineSegmentsPath = outPath + 'RangeLineSegments.csv'
@@ -512,7 +527,6 @@ plotPrefix=args.expt
 lonZone=args.lonzone
 latZone=args.latzone
 
-flightLog = args.log
 imageType = args.type
 renameImages=args.rename
 debugMode=args.debug
@@ -527,30 +541,30 @@ plots={}
 
 #Initialize a new SQL metadata load file
 with open(metadataSqlFilePath, 'w') as sqlFile:
-    print "Initialized SQL Metadata Load File."
+    print("Initialized SQL Metadata Load File.")
     sqlFile.close()
 
 gpsEvents,localTimeZone =interpolate_time(flightLog)
 sortedKeys=list(sorted(gpsEvents.keys()))
 
 if len(gpsEvents)==0:
-    print "There were no gps events found in", flightLog
-    print
+    print("There were no gps events found in", flightLog)
+    print()
 
 fltStartString=datetime.datetime.utcfromtimestamp(min(gpsEvents.keys())/1000.0)
 fltEndString=datetime.datetime.utcfromtimestamp(max(gpsEvents.keys())/1000.0)
 fltStart=time.gmtime(min(gpsEvents.keys())/1000.0)
 fltEnd=time.gmtime(max(gpsEvents.keys())/1000.0)
-print ''
-print 'Flight Start: ',fltStartString
-print 'Flight End: ',fltEndString
+print()
+print('Flight Start: ',fltStartString)
+print('Flight End: ',fltEndString)
 
 flightId='uas_'+ str(fltStart[0])+str(fltStart[1]).zfill(2)+str(fltStart[2]).zfill(2)+ '_' + \
          str(fltStart[3]).zfill(2) + str(fltStart[4]).zfill(2) + str(fltStart[5]).zfill(2) + '_' + \
          str(fltEnd[0]) + str(fltEnd[1]).zfill(2) + str(fltEnd[2]).zfill(2) + '_' + \
          str(fltEnd[3]).zfill(2) + str(fltEnd[4]).zfill(2) + str(fltEnd[5]).zfill(2)
-print ''
-print 'Flight ID:', flightId
+print()
+print('Flight ID:', flightId)
 
 #**********************************************
 if debugMode == 'Y':
@@ -564,7 +578,7 @@ if debugMode == 'Y':
 
     #with open('/bulk/mlucas/test/gpsEvents.csv', 'ab') as csvfile:
     with open(debugPath, 'ab') as csvfile:
-        print 'Generating gpsEvents file', debugPath
+        print('Generating gpsEvents file', debugPath)
         for lineitem in sorted(gpsEvents.iteritems()):
             fileline = csv.writer(csvfile)
             fileline.writerow([lineitem[0], lineitem[1][0], lineitem[1][1], lineitem[1][2], lineitem[1][3], lineitem[1][4], lineitem[1][5], lineitem[1][6],lineitem[1][7], lineitem[1][8], lineitem[1][9], lineitem[1][10],lineitem[1][11],lineitem[1][12]])
@@ -585,11 +599,17 @@ try:
             LonLatPlt = convert_polygon_coord_system(plotPolygon,lonZone,latZone)
             plt=wkt.loads(LonLatPlt)
             plots[plotId] = [plotId, plt, plt.centroid]
-except:
-    print 'Unexpected error during database query:', sys.exc_info()[0]
+    else:
+        print("There were no plots found in the database with plot prefix of " + plotPrefix)
+        print("Exiting...")
+        sys.exit()
+except Exception,e:
+    #print('Unexpected error during database query:', sys.exc_info()[0])
+    print('Unexpected error during database query:', e)
+    print('Exiting...')
     sys.exit()
 
-print ('Committing changes and closing connection to database table: plot_map ')
+print ('Closing connection to database table: plot_map ')
 commit_and_close_db_connection(cursor, cnx)
 
 # Build the KD Tree of plot coordinates that will be used to compute the nearest plot for a point
@@ -621,33 +641,33 @@ with open(plotRangePath, 'w') as plotRangeFile:
     plotRangeFile.write('range_id' + ',' + 'plot_id' + ',' + 'plot' + '\n')
 
     for uasPath in uasFolderList:
-        print ' '
+        print()
         folder = uasPath.split('/')[-2]
-        print "Processing Image Folder:",folder
+        print("Processing Image Folder:",folder)
         sensor_id = folder.split('_')[1]
-        print "Sensor ID: ", sensor_id
+        print("Sensor ID: ", sensor_id)
         image_set = folder.split('_')[2]
-        print "Image Set: ",image_set
-        print ''
+        print("Image Set: ",image_set)
+        print()
         imagefiles = get_image_file_list(uasPath,imageType,imageFileList)
         imageCount = len(imagefiles)
         if imageCount==0:
-            print "There were no image files found in ",uasPath
-            print "Exiting"
+            print("There were no image files found in ",uasPath)
+            print("Exiting")
         else:
             frameInterval=float(rangeDurations[rangeSegment][2])/imageCount
             frameRate = 1000.0/frameInterval
-            print ''
-            print "Range Flight Duration(secs): ",rangeDurations[rangeSegment][2]/1000.0
-            print "Frame Rate (frames/s): ",frameRate
-            print "Frame Interval(ms): ",frameInterval
-            print "Image Count ",imageCount
+            print()
+            print("Range Flight Duration(secs): ",rangeDurations[rangeSegment][2]/1000.0)
+            print("Frame Rate (frames/s): ",frameRate)
+            print("Frame Interval(ms): ",frameInterval)
+            print("Image Count ",imageCount)
     #
     # Define UAS Metadata Output File Path
     #
         uasMetadataFile= outPath + flightId + '_' + image_set +'_metadata.csv'
-        print ''
-        print 'UAS Metadata Output File: ',uasMetadataFile
+        print()
+        print('UAS Metadata Output File: ',uasMetadataFile)
         frameIndex = 0
         logTimeIndex= 0
         timestamp = rangeDurations[rangeSegment][0]
@@ -702,7 +722,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 plotID=plotCentroidID[nearest[1]][2]
                 if plotID not in intersectedPlots and plots[plotID][1].contains(Point(uas_longitude,uas_latitude)) :
                     intersectedPlots[plotID]=[rangeSegment,plotID,plots[plotID][1].wkt,timestamp]
-                    print rangeSegment,plotID,plots[plotID][1].wkt,timestamp
+                    print(rangeSegment,plotID,plots[plotID][1].wkt,timestamp)
                     rangePlotLine = str(image_set) + ',' + plotID + ',"' + plots[plotID][1].wkt + '"\n'
                     plotRangeFile.write(rangePlotLine)
 
@@ -716,9 +736,9 @@ with open(plotRangePath, 'w') as plotRangeFile:
                     metadata_record[1] = newimagefilename
                     oldimagefilepath = uasPath + imagefilename
                     os.rename(oldimagefilepath, newimagefilepath)
-                    print 'old file name: ', oldimagefilepath
-                    print 'new file name: ', newimagefilepath
-                    print ' '
+                    print('old file name: ', oldimagefilepath)
+                    print('new file name: ', newimagefilepath)
+                    print()
                 else:
                     oldimagefilepath = uasPath + imagefilename
                     newimagefilepath = oldimagefilepath
@@ -752,8 +772,8 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 try:
                     if imageType=='jpg':
                         with open(newimagefilepath, 'rb') as image:
-                            #print "Writing EXIF data for ", newimagefilepath
-                            #print ''
+                            #print("Writing EXIF data for ", newimagefilepath)
+
                             exif_dict=piexif.load(newimagefilepath)
                             exif_dict['GPS'][piexif.GPSIFD.GPSLatitudeRef]=latRef
                             exif_dict['GPS'][piexif.GPSIFD.GPSLatitude]=((latDegrees,1),(latMins,1),(int(latSecs * 1000.0),1000))
@@ -771,9 +791,9 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 frameIndex += 1
 
         except Exception, e:
-            print '*** Error*** Unable to process image file ',imagefilename
-            print '*** Error Code:', e
-            print '*** Trying to continue...'
+            print('*** Error*** Unable to process image file ',imagefilename)
+            print('*** Error Code:', e)
+            print('*** Trying to continue...')
             pass
 
         with open(uasMetadataFile, 'wb') as csvfile:
@@ -787,7 +807,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
         csvfile.close()
 
         with open(uasMetadataFile, 'ab') as csvfile:
-            print 'Generating metadata file', uasMetadataFile
+            print('Generating metadata file', uasMetadataFile)
             for lineitem in metadatalist:
                 fileline = csv.writer(csvfile)
                 fileline.writerow(
@@ -804,7 +824,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
 
         # Create the SQL command file to load the uas_images metadata
 
-        print 'Generating SQL file for DJI metadata:', metadataSqlFilePath
+        print('Generating SQL file for DJI metadata:', metadataSqlFilePath)
         #SET uas_position=ST_PointFromText(CONCAT('POINT(',uas_position_x,' ',uas_position_y,')')),uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');"""
         loadMetCmd = """LOAD DATA LOCAL INFILE '""" + uasMetadataFile + """' INTO TABLE uas_images FIELDS TERMINATED BY ','""" + """ LINES TERMINATED BY '\\r' IGNORE 1 LINES (record_id,image_file_name,flight_id,sensor_id,uas_position_x,uas_position_y,uas_position_z,uas_latitude,uas_longitude,@uas_sampling_date_utc,uas_sampling_time_utc,uas_lat_zone,uas_long_zone,uas_altitude_reference,cam_position_x,cam_position_y,cam_position_z,cam_latitude,cam_longitude,cam_sampling_date_utc,cam_sampling_time_utc,cam_lat_zone,cam_long_zone,cam_altitude_reference,md5sum,notes) SET uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');\n"""
         with open(metadataSqlFilePath, 'a+') as sqlFile:
