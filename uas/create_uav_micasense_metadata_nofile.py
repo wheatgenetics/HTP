@@ -155,13 +155,15 @@ if uasOutPath[-1] != '/':
     uasOutPath+='/'
 
 uasFolderPathList=[]
-uasFolderList=[]
+#uasFolderList=[]
 uasSubFolderList=[]
 uasLogFileList=[]
 
 # Search for data set folders that need to be processed and store in a list
+# NB '' item in os.path.join adds an os-independent trailing slash character
 
-uasFolderPathList=[os.path.join(uasPath,name)+'/' for name in os.listdir(uasPath) if os.path.isdir(os.path.join(uasPath,name))]
+
+uasFolderPathList=[os.path.join(uasPath,name,'') for name in os.listdir(uasPath) if os.path.isdir(os.path.join(uasPath,name))]
 if uasFolderPathList==[]:
     print("No uas data sets found in uav_staging...Exiting")
     sys.exit()
