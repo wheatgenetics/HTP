@@ -25,8 +25,6 @@ def get_image_file_list(uasPath, imageType):
 
     # Get list of files in uas staging directory
 
-    print("Fetching list of image files...")
-
     filestocheck = subprocess.check_output(['ls', '-1', uasPath], universal_newlines=True)
 
     afile = ''
