@@ -36,6 +36,10 @@ from shapely.wkt import dumps
 from shapely.geometry import Point,Polygon,MultiPoint
 from decimal import *
 import shutil
+import pytz
+from tzlocal import get_localzone
+from timezonefinder import TimezoneFinder
+import datetime
 
 #print imagepreprocess.__name__
 #print sys.path
@@ -69,8 +73,8 @@ def create_flightId_from_logfile(flightLog):
         lminutes = rowFields[11][14:16]
         lsecs = rowFields[11][17:19]
 
-        startDate = lYear + lMonth + lDay
-        startTime = lhours + lminutes + lsecs
+        utcStartDate = lYear + lMonth + lDay
+        utcStartTime = lhours + lminutes + lsecs
 
         lastRow=flightLogList[-1]
         rowFields = lastRow.split(',')
@@ -81,27 +85,42 @@ def create_flightId_from_logfile(flightLog):
         lminutes = rowFields[11][14:16]
         lsecs = rowFields[11][17:19]
 
-        endDate = lYear + lMonth + lDay
-        endTime = lhours + lminutes + lsecs
+        utcEndDate = lYear + lMonth + lDay
+        utcEndTime = lhours + lminutes + lsecs
 
-        flightID = 'uas_'+startDate+'_'+startTime+'_'+endDate+'_'+endTime
+        flightID = 'uas_'+utcStartDate+'_'+utcStartTime+'_'+utcEndDate+'_'+utcEndTime
 
-    return flightID,startDate,startTime,endDate,endTime
+    return flightID,utcStartDate,utcStartTime,utcEndDate,utcEndTime
 
-def create_flightId_from_image_datetime(metadataList):
+def create_flightId_from_image_datetime(metadataList,longitude,latitude):
 
-    startDate=str(metadataList[0][3])
-    startDate=startDate.replace('/','')
-    startTime=str(metadataList[0][4])
-    startTime=startTime.replace(':','')
-    endDate=str(metadataList[-1][3])
-    endDate=endDate.replace('/','')
-    endTime=str(metadataList[-1][4])
-    endTime=endTime.replace(':','')
+    # Create flight ID from UTC dates and Times.
+    # Also return the local start date and start time
 
-    flight_id='uas_'+startDate+'_'+startTime+'_'+endDate+'_'+endTime
+    utcStartDate=str(metadataList[0][3])
+    startYear, startMonth, startDay = utcStartDate.split("/")
+    utcStartDate=utcStartDate.replace('/','')
+    utcStartTime=str(metadataList[0][4])
+    startHour, startMinute, startSecond = utcStartTime.split(':')
+    utcStartTime=utcStartTime.replace(':','')
+    utcEndDate=str(metadataList[-1][3])
+    utcEndDate=utcEndDate.replace('/','')
+    utcEndTime=str(metadataList[-1][4])
+    utcEndTime=utcEndTime.replace(':','')
 
-    return flight_id,startDate,startTime,endDate,endTime
+    flight_id='uas_'+utcStartDate+'_'+utcStartTime+'_'+utcEndDate+'_'+utcEndTime
+
+    tf = TimezoneFinder()
+    tzone = tf.timezone_at(lng=longitude, lat=latitude)
+    tz = pytz.timezone(tzone)
+    utc_dt = datetime.datetime(int(startYear), int(startMonth), int(startDay), int(startHour), int(startMinute),
+                               int(startSecond), tzinfo=pytz.utc)
+    dt = utc_dt.astimezone(tz)
+
+    localDate = dt.date()
+    localTime = dt.time()
+
+    return flight_id,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime
 
 
 def check_manifest(manifest):
@@ -122,7 +141,7 @@ cmdline.add_argument('-t', '--type', help='Image file type extension, e.g. TIF, 
 
 cmdline.add_argument('-o', '--out', help='Output file path and filename',
                      default='/cygdrive/f/uav_processed/')
-#
+
 args = cmdline.parse_args()
 
 uasPath = args.dir
@@ -147,7 +166,10 @@ if uasFolderPathList==[]:
     print("No uas data sets found in uav_staging...Exiting")
     sys.exit()
 
+# Process each data set folder ie. 0000SET,0001SET,00002SET ...nnnnSET
+
 for uasFolder in uasFolderPathList:
+    print("Processing Data Set: " + uasFolder)
     record_id = None
     notes = ''
     metadataRecord = []
@@ -157,7 +179,7 @@ for uasFolder in uasFolderPathList:
 
     #uasLogFileList = [os.path.join(uasFolder, logfile) for logfile in os.listdir(uasFolder) if logfile.endswith(".csv")]
     #uasLogFile= uasLogFileList[0]
-    #flightId,startDate,startTime,endDate,endTime=create_flightId_from_logfile(uasLogFile)
+    #flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime=create_flightId_from_logfile(uasLogFile)
 
     # Parse the flight folder name to extract parameters needed for the uas_run table entry
 
@@ -165,13 +187,13 @@ for uasFolder in uasFolderPathList:
     dateStr, timeStr, plannedElevation, camStr, cameraAngle, imgTypeStr, seqStr = parse_flight_folder_name(flightFolder[1])
 
 
-    # Process each image sub-folder
+    # Process each image sub-folder within each Micasense data set i.e. 000,001,002...nnn
 
     uasSubFolderList=[]
     uasSubFolderList=[os.path.join(uasFolder,name)+'/' for name in os.listdir(uasFolder) if os.path.isdir(os.path.join(uasFolder,name))]
 
     for subFolder in uasSubFolderList:
-        print("Processing "+subFolder)
+        print("Processing Data Set sub-folder: "+subFolder)
         # Get the list of image files in the sub-folder
         imagefiles = get_image_file_list(subFolder, imageType)
         if len(imagefiles) == 0:
@@ -216,11 +238,10 @@ for uasFolder in uasFolderPathList:
                                   md5sum, positionRef, notes]
                 metadataList.append(metadataRecord)
 
-    print()
-
     # Compute the flight ID from the image timestamps to support case where logfile is not available
 
-    flightId,startDate,startTime,endDate,endTime=create_flightId_from_image_datetime(metadataList)
+    flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime=\
+        create_flightId_from_image_datetime(metadataList,longitude,latitude)
 
     print("")
     print("Connecting to Database...")
@@ -251,7 +272,9 @@ for uasFolder in uasFolderPathList:
 
     get_flight_coords = "SELECT ST_X(position),ST_Y(position) from uas_images_test where flight_id like %s"
 
-    db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date,start_time,end_date,end_time,flight_filename,planned_elevation_m,sensor_id,camera_angle,flight_polygon) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s))"
+    db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
+                    "end_time_utc,start_time_local,start_date_local,flight_filename,planned_elevation_m,sensor_id," \
+                    "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
 
     insertCount=0
     for lineitem in metadataList:
@@ -268,8 +291,10 @@ for uasFolder in uasFolderPathList:
         for row in cursorC:
             pointList.append((row[0],row[1]))
 
+    imageCount=insertCount
     flightPolygon=dumps((MultiPoint(pointList)).convex_hull)
-    flightRow=(record_id,flightId,startDate,startTime,endDate,endTime, flightFolder[1],plannedElevation,sensorId,cameraAngle,flightPolygon)
+    flightRow=(record_id,flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localTime,localDate,
+               flightFolder[1],plannedElevation,sensorId,cameraAngle,flightPolygon,imageCount)
     cursorD.execute(db_insert_run,flightRow)
     cnx.commit()
     cursorA.close()
@@ -282,6 +307,7 @@ for uasFolder in uasFolderPathList:
     print("Number of database records returned on insert check query", checkCount)
     print("")
     print('Closing database connection...')
+    print("")
 
     cnx.close()
 
@@ -295,27 +321,24 @@ for uasFolder in uasFolderPathList:
     uasSubFolderList = [os.path.join(uasFolder, name) + '/' for name in os.listdir(uasFolder) if os.path.isdir(os.path.join(uasFolder, name))]
 
     for subFolder in uasSubFolderList:
-        print("Moving images from  " + subFolder)
         # Get the list of image files in the sub-folder
         imagefiles = get_image_file_list(subFolder, imageType)
         if len(imagefiles) == 0:
             print("There were no image files found in ", subFolder)
-            #print("Exiting")
-            #sys.exit(10)
             pass
         else:
-            print("Number of images in " + subFolder + "=" + str(len(imagefiles)))
-            print()
+            print("Moving " + str(len(imagefiles)) + " images from " + subFolder + " to " + uasFolder)
             for f in imagefiles:
                 oldFilename = subFolder + f
                 newFilename = uasFolder + f
                 shutil.move(oldFilename,newFilename)
-            print("Deleting sub-folder " + subFolder)
+            print("Cleaning up...")
             os.rmdir(subFolder)
 
 # Move the data set to the uav_processed folder
 
-     shutil.move(uasFolder,uasOutPath)
+    print("Moving processed data sets from " + uasFolder + " to " + uasOutPath)
+    shutil.move(uasFolder,uasOutPath)
 
 # Exit the program gracefully
 
