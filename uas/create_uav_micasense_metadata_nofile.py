@@ -36,9 +36,9 @@ from shapely.wkt import dumps
 from shapely.geometry import Point,Polygon,MultiPoint
 from decimal import *
 import shutil
-import pytz
-from tzlocal import get_localzone
-from timezonefinder import TimezoneFinder
+#import pytz # Removed temporarily since numpy requirement can't install on Windows
+#from tzlocal import get_localzone # Removed temporarily since numpy requirement can't install on Windows
+#from timezonefinder import TimezoneFinder # Removed temporarily since numpy requirement can't install on Windows
 import datetime
 
 #print imagepreprocess.__name__
@@ -110,17 +110,18 @@ def create_flightId_from_image_datetime(metadataList,longitude,latitude):
 
     flight_id='uas_'+utcStartDate+'_'+utcStartTime+'_'+utcEndDate+'_'+utcEndTime
 
-    tf = TimezoneFinder()
-    tzone = tf.timezone_at(lng=longitude, lat=latitude)
-    tz = pytz.timezone(tzone)
-    utc_dt = datetime.datetime(int(startYear), int(startMonth), int(startDay), int(startHour), int(startMinute),
-                               int(startSecond), tzinfo=pytz.utc)
-    dt = utc_dt.astimezone(tz)
+    #tf = TimezoneFinder()
+    #tzone = tf.timezone_at(lng=longitude, lat=latitude)
+    #tz = pytz.timezone(tzone)
+    #utc_dt = datetime.datetime(int(startYear), int(startMonth), int(startDay), int(startHour), int(startMinute),
+    #                           int(startSecond), tzinfo=pytz.utc)
+    #dt = utc_dt.astimezone(tz)
+    #
+    #localDate = dt.date()
+    #localTime = dt.time()
 
-    localDate = dt.date()
-    localTime = dt.time()
-
-    return flight_id,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime
+    #return flight_id,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime
+    return flight_id, utcStartDate, utcStartTime, utcEndDate, utcEndTime
 
 
 def check_manifest(manifest):
@@ -242,8 +243,10 @@ for uasFolder in uasFolderPathList:
 
     # Compute the flight ID from the image timestamps to support case where logfile is not available
 
-    flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime=\
-        create_flightId_from_image_datetime(metadataList,longitude,latitude)
+    #flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime=\
+    #   create_flightId_from_image_datetime(metadataList,longitude,latitude)
+    flightId, utcStartDate, utcStartTime, utcEndDate, utcEndTime = \
+        create_flightId_from_image_datetime(metadataList, longitude, latitude)
 
     print("")
     print("Connecting to Database...")
@@ -274,9 +277,13 @@ for uasFolder in uasFolderPathList:
 
     get_flight_coords = "SELECT ST_X(position),ST_Y(position) from uas_images_test where flight_id like %s"
 
+    #db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
+    #                "end_time_utc,start_time_local,start_date_local,flight_filename,planned_elevation_m,sensor_id," \
+    #                "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
+
     db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
-                    "end_time_utc,start_time_local,start_date_local,flight_filename,planned_elevation_m,sensor_id," \
-                    "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
+                    "end_time_utc,flight_filename,planned_elevation_m,sensor_id," \
+                    "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
 
     insertCount=0
     for lineitem in metadataList:
@@ -295,8 +302,10 @@ for uasFolder in uasFolderPathList:
 
     imageCount=insertCount
     flightPolygon=dumps((MultiPoint(pointList)).convex_hull)
-    flightRow=(record_id,flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localTime,localDate,
-               flightFolder[1],plannedElevation,sensorId,cameraAngle,flightPolygon,imageCount)
+    #flightRow=(record_id,flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localTime,localDate,
+    #           flightFolder[1],plannedElevation,sensorId,cameraAngle,flightPolygon,imageCount)
+    flightRow = (record_id, flightId, utcStartDate, utcStartTime, utcEndDate, utcEndTime,flightFolder[1],
+                 plannedElevation, sensorId, cameraAngle, flightPolygon, imageCount)
     cursorD.execute(db_insert_run,flightRow)
     cnx.commit()
     cursorA.close()
