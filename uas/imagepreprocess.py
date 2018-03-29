@@ -222,10 +222,11 @@ def get_image_exif_data(filename):
             cam_serial_no = str(tags[exifCamSerialNo])
 
 
-    except Exception,e:
-        print '*** Error*** Unable to process image file EXIF data for '
-        print '*** Error Code:',e
-        print '*** Null EXIF-based column values will be generated for',filename
+    #except Exception,e:
+    except Exception as e:
+        print ('*** Error*** Unable to process image file EXIF data for ')
+        print ('*** Error Code:',e)
+        print ('*** Null EXIF-based column values will be generated for',filename)
     return cam_position_x, cam_position_y,cam_position_z, cam_latitude, cam_longitude, cam_sample_date,\
            cam_sample_time, cam_lat_zone, cam_long_zone, cam_altitude_ref,cam_serial_no
 

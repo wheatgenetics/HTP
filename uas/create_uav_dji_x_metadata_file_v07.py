@@ -5,6 +5,8 @@ from __future__ import unicode_literals
 #
 # Program: create_uas_dji_x_metadata_file
 #
+# Version 0.7 March 29,2018 Modifications to operate with revised latitude/longitude based database plot_map table
+#
 # Version 0.6 July 25,2017 Added capability to find nearest plot for a point associated with an image and to generate
 # an output data file containing an ordered list of plots that the flight path actually intersected for each range.
 #
