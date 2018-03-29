@@ -52,7 +52,7 @@ import os
 import glob
 import exifread
 import piexif
-import local_config
+import config
 import mysql.connector
 from mysql.connector import errorcode
 
@@ -321,7 +321,7 @@ def get_image_exif_data(image,
         fcamTimeUTCInSecs = int(round(((utc_dt - epoch).total_seconds() + (int(frameNumber) * (1.0 / frameRate))) * 1000.0))
         float_camTimeUTCInSecs = fcamTimeUTCInSecs + (int(frameNumber) * (1.0 / frameRate))
 
-    except Exception,e:
+    except Exception as e:
         print('*** Error*** Unable to process image file EXIF data for ')
         print('*** Error Code:',e)
         print('*** Null EXIF-based column values will be generated for',image)
@@ -411,7 +411,8 @@ def get_imageTime_logTime_delta(imagePath,logEntry):
 def calculate_range_flight_durations(gpsEvents):
     segRef=0
     segStartTime=0
-    for event in sorted(gpsEvents.iteritems()):
+    #for event in sorted(gpsEvents.iteritems()):
+    for event in sorted(gpsEvents.items()):
         segment=event[1][-1]
         if segment != segRef:
             segStartTime=int(event[0])
@@ -437,13 +438,13 @@ def convert_polygon_coord_system(plt,lonZone,latZone):
     LonLatPlt=LonLatCoordString[0:-1] + '))'
     return LonLatPlt
 
-def open_db_connection(local_config):
+def open_db_connection(config):
 
     # Connect to the HTP database
         try:
-            cnx = mysql.connector.connect(user=local_config.USER, password=local_config.PASSWORD,
-                                          host=local_config.HOST, port=local_config.PORT,
-                                          database=local_config.DATABASE)
+            cnx = mysql.connector.connect(user=config.USER, password=config.PASSWORD,
+                                          host=config.HOST, port=config.PORT,
+                                          database=config.DATABASE)
             print('Connecting to Database: ' + cnx.database)
 
         except mysql.connector.Error as err:
@@ -589,7 +590,7 @@ if debugMode == 'Y':
 
 # Query the database for the plot polygons and store them in a dictionary with plot_id as key
 
-cursor, cnx = open_db_connection(local_config)
+cursor, cnx = open_db_connection(config)
 plotQuery=("SELECT record_id,plot_id,ST_AsText(plot_polygon) FROM plot_map WHERE plot_id LIKE %s")
 
 try:
@@ -598,14 +599,15 @@ try:
         for row in cursor:
             plotId=row[1]
             plotPolygon=row[2]
-            LonLatPlt = convert_polygon_coord_system(plotPolygon,lonZone,latZone)
-            plt=wkt.loads(LonLatPlt)
+            #LonLatPlt = convert_polygon_coord_system(plotPolygon,lonZone,latZone)
+            #plt=wkt.loads(LonLatPlt)
+            plt=wkt.loads(plotPolygon)
             plots[plotId] = [plotId, plt, plt.centroid]
     else:
         print("There were no plots found in the database with plot prefix of " + plotPrefix)
         print("Exiting...")
         sys.exit()
-except Exception,e:
+except Exception as e:
     #print('Unexpected error during database query:', sys.exc_info()[0])
     print('Unexpected error during database query:', e)
     print('Exiting...')
@@ -792,13 +794,14 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 timestamp += frameInterval
                 frameIndex += 1
 
-        except Exception, e:
+        except Exception as e:
             print('*** Error*** Unable to process image file ',imagefilename)
             print('*** Error Code:', e)
             print('*** Trying to continue...')
             pass
 
-        with open(uasMetadataFile, 'wb') as csvfile:
+        #with open(uasMetadataFile, 'wb') as csvfile:
+        with open(uasMetadataFile, 'w') as csvfile:
             header = csv.writer(csvfile)
             header.writerow(
                 ['record_id', 'image_file_name','flight_id', 'sensor_id', 'uas_position_x',
@@ -808,7 +811,8 @@ with open(plotRangePath, 'w') as plotRangeFile:
                  'cam_altitude_reference', 'md5sum', 'notes'])
         csvfile.close()
 
-        with open(uasMetadataFile, 'ab') as csvfile:
+        #with open(uasMetadataFile, 'ab') as csvfile:
+        with open(uasMetadataFile, 'a') as csvfile:
             print('Generating metadata file', uasMetadataFile)
             for lineitem in metadatalist:
                 fileline = csv.writer(csvfile)
@@ -819,8 +823,8 @@ with open(plotRangePath, 'w') as plotRangeFile:
                      lineitem[23],lineitem[24]])
             # Kludge to get rid of blank last line in the file which causes an empty row to be loaded into the database
             # when using LOAD DATA INFILE procedure!!
-            csvfile.seek(-2, os.SEEK_END)
-            csvfile.truncate()
+            #csvfile.seek(-2, os.SEEK_END)
+            #csvfile.truncate()
         csvfile.close()
 
 
