@@ -226,7 +226,7 @@ for uasFolder in uasFolderPathList:
                 sensorId = 'CAM_' + cam_serial_no
                 # Create a WKT representation of the position POINT object using shapely dumps function
                 position = dumps(Point(longitude, latitude))
-                positionRef = 1
+                positionRef = 'EXIF'
                 notes = None
                 # Rename image files
                 imageFileName = sensorId + '_' + dateString + '_' + timeString + '_' + imagefilename

@@ -98,6 +98,7 @@ from scipy.spatial import cKDTree
 import numpy
 
 from shapely import wkt
+from shapely.wkt import dumps
 from shapely.geometry import Point, LineString,Polygon
 
 secsInWeek = 604800
@@ -106,6 +107,13 @@ gpsEpoch = (1980, 1, 6, 0, 0, 0)  # (year, month, day, hh, mm, ss)
 null_date = '0000/00/00'
 null_time = '00:00:00'
 epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.UTC)
+
+log='LOG' # GPS position obtained from log file
+img='EXIF' # GPS position obtained from images
+gcp_world_coords = None
+gcp_pixel_coords = None
+uas_position_source=None
+uas_altitude_ref='AGL'
 
 bufsize = 1  # Use line buffering, i.e. output every line to the file.
 
@@ -185,11 +193,6 @@ def interpolate_time(fflightLog):
         rowFields = previous.split(',')
         latitude = float(rowFields[0]) + lonOffset
         longitude = float(rowFields[1]) + latOffset
-        utmPosition = utm.from_latlon(latitude, longitude)
-        utmPositionX = utmPosition[0]
-        utmPositionY = utmPosition[1]
-        utmLatZone = utmPosition[2]
-        utmLongZone = utmPosition[3]
         altitude = float(rowFields[2]) * 0.3048  # Convert altitude in feet to meters
         lYear = rowFields[11][0:4]
         lMonth = rowFields[11][5:7]
@@ -216,11 +219,6 @@ def interpolate_time(fflightLog):
             rowFields = row.split(',')
             latitude = float(rowFields[0]) + latOffset
             longitude = float(rowFields[1]) + lonOffset
-            utmPosition = utm.from_latlon(latitude, longitude)
-            utmPositionX = utmPosition[0]
-            utmPositionY = utmPosition[1]
-            utmLatZone = utmPosition[2]
-            utmLongZone = utmPosition[3]
             altitude = float(rowFields[2]) * 0.3048
             lYear = rowFields[11][0:4]
             lMonth = rowFields[11][5:7]
@@ -257,8 +255,8 @@ def interpolate_time(fflightLog):
 
                 # Store the log data
 
-                gpsEventList = [DateStr, TimeStr, latitude, longitude, altitude, takingVideo, interpolated, timestamp,
-                                utmPositionX, utmPositionY, utmLatZone, utmLongZone,segment]
+                gpsEventList = [DateStr, TimeStr, latitude, longitude, altitude, takingVideo, interpolated,
+                                timestamp,segment]
                 gpsEventDict[timestamp] = gpsEventList
 
                 # Normal sampling interval is 100ms. The interpolated sampling interval is 10 ms.
@@ -288,13 +286,8 @@ def interpolate_time(fflightLog):
                             '%Y/%m/%d %H:%M:%S.%f')
                         newDateStr = newTimeStr.split(' ')[0]
                         newTimeStr = newTimeStr.split(' ')[1]
-                        newUtmPosition = utm.from_latlon(newLat, newLong)
-                        newUtmPositionX = newUtmPosition[0]
-                        newUtmPositionY = newUtmPosition[1]
-                        newUtmLatZone = newUtmPosition[2]
-                        newUtmLongZone = newUtmPosition[3]
                         gpsEventList = [newDateStr, newTimeStr, newLat, newLong, newAlt, takingVideo, interpolated,
-                                        newTime, newUtmPositionX, newUtmPositionY, newUtmLatZone, newUtmLongZone,segment]
+                                        newTime, segment]
                         gpsEventDict[newTime] = gpsEventList
                         rowCount+=1
                         lastTime = newTime
@@ -332,33 +325,14 @@ def calculate_checksum(ffilename):
 def init_metadata_record():
     record_id=None
     imagefilename=None
-    uas_position_x=None
-    uas_position_y=None
-    uas_position_z=None
-    uas_latitude=None
-    uas_longitude=None
     uas_sample_date_utc=null_date
     uas_sample_time_utc=null_time
-    uas_latzone=None
-    uas_longzone=None
-    uas_altitude_ref='AGL'
-    cam_position_x=None
-    cam_position_y=None
-    cam_position_z=None
-    cam_latitude=None
-    cam_longitude=None
-    cam_sample_date_utc=null_date
-    cam_sample_time_utc=null_time
-    cam_lat_zone=None
-    cam_long_zone=None
-    cam_altitude_ref=None
+    uas_position=None
+    uas_altitude=None
     f_checksum=None
     notes=''
-    blankrow = [record_id, imagefilename, flightId, sensor_id, uas_position_x, uas_position_y,
-                uas_position_z, uas_latitude, uas_longitude, uas_sample_date_utc, uas_sample_time_utc,
-                uas_latzone, uas_longzone, uas_altitude_ref, cam_position_x, cam_position_y, cam_position_z,
-                cam_latitude, cam_longitude, cam_sample_date_utc, cam_sample_time_utc, cam_lat_zone,
-                cam_long_zone, cam_altitude_ref, f_checksum, notes]
+    blankrow = [record_id, imagefilename, flightId, sensor_id,uas_sample_date_utc, uas_sample_time_utc,uas_position,
+                uas_altitude,uas_altitude_ref,gcp_world_coords,gcp_pixel_coords,f_checksum, uas_position_source,notes]
     return blankrow
 
 
@@ -547,6 +521,7 @@ print()
 print('Flight ID:', flightId)
 
 #**********************************************
+# This code section will dump a file containing log file events including interpolated position events.
 if debugMode == 'Y':
     debugPath=outPath+ 'gpsDebugEvents.csv'
     #with open('/bulk/mlucas/test/gpsEvents.csv', 'wb') as csvfile:
@@ -619,6 +594,8 @@ intersectedPlots={}
 with open(plotRangePath, 'w') as plotRangeFile:
     plotRangeFile.write('range_id' + ',' + 'plot_id' + ',' + 'plot' + '\n')
 
+# Process each image folder found in the input folder
+
     for uasPath in uasFolderList:
         print()
         folder = uasPath.split('/')[-2]
@@ -655,44 +632,39 @@ with open(plotRangePath, 'w') as plotRangeFile:
             for f in imagefiles:
                 metadata_record=init_metadata_record()
                 imagefilename=f
-                metadata_record[0]=record_id
-                metadata_record[2]=flightId
-                metadata_record[3]=sensor_id
                 imagefilepath=uasPath+imagefilename
 
             # Interpolate Longitude,Latitude and Altitude of image
-            # Need to convert date/time/frame to timestamp
+            # Convert date/time/frame to timestamp
             #
 
             # Find the time index in GPS events that is less than or equal to the frame time
 
-
-
                 logTimeIndex = bisect.bisect_left(sortedKeys, timestamp)
                 gpsEventsKey = sortedKeys[logTimeIndex]
                 gpsEvents[gpsEventsKey].extend((logTimeIndex,timestamp, abs(gpsEventsKey - timestamp),imagefilename))
-                uas_position_x=gpsEvents[gpsEventsKey][8]
-                uas_position_y=gpsEvents[gpsEventsKey][9]
-                uas_position_z=gpsEvents[gpsEventsKey][4]
+
                 uas_latitude=gpsEvents[gpsEventsKey][2]
                 uas_longitude=gpsEvents[gpsEventsKey][3]
+                # Create a WKT representation of the position POINT object using shapely dumps function
+                uas_position = dumps(Point(uas_longitude, uas_latitude))
+                uas_position_source = img # Position data derived from image EXIF
+
+                uas_altitude = gpsEvents[gpsEventsKey][4]
                 uas_sample_date_utc=gpsEvents[gpsEventsKey][0]
                 uas_sample_time_utc=gpsEvents[gpsEventsKey][1]
-                uas_latzone=gpsEvents[gpsEventsKey][10]
-                uas_longzone=gpsEvents[gpsEventsKey][11]
 
                 metadata_record[0]=record_id
                 metadata_record[2]=flightId
                 metadata_record[3]=sensor_id
-                metadata_record[4] = uas_position_x
-                metadata_record[5] = uas_position_y
-                metadata_record[6] = uas_position_z
-                metadata_record[7] = uas_latitude
-                metadata_record[8] = uas_longitude
-                metadata_record[9] = uas_sample_date_utc
-                metadata_record[10] = uas_sample_time_utc
-                metadata_record[11] = uas_latzone
-                metadata_record[12] = uas_longzone
+                metadata_record[4] = uas_sample_date_utc
+                metadata_record[5] = uas_sample_time_utc
+                metadata_record[6] = uas_position
+                metadata_record[7] = uas_altitude
+                metadata_record[8] = uas_altitude_ref
+                metadata_record[9] = gcp_world_coords
+                metadata_record[10] = gcp_pixel_coords
+                metadata_record[12] = log
 
             # Determine whether the point corresponding to the image position lies within a plot
 
@@ -724,13 +696,12 @@ with open(plotRangePath, 'w') as plotRangeFile:
                     newimagefilepath = oldimagefilepath
                     metadata_record[1] = imagefilename
 
-                metadata_record[24] = calculate_checksum(newimagefilepath)
+                metadata_record[11] = calculate_checksum(newimagefilepath)
                 metadata_record[0] = record_id
 
                 metadatalist.append(metadata_record)
                 #
-                # Update the EXIF GPS data for the JPEG images
-                # Update of DN
+                # Update the EXIF GPS data in each image
                 #
                 latDMS=decimalDegrees2DMS(uas_latitude,'Latitude')
                 latFields=latDMS.split(':')
@@ -744,9 +715,9 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 lonMins=int(lonFields[1])
                 lonSecs = float(lonFields[2][0:(len(lonFields[2]) - 1)])
                 lonRef = lonFields[2][-1]
-                referenceAltitude = 311.0 # Rocky Ford Altitude in Meters
+
                 altRef=0 # Above Sea Level
-                altMeters=uas_position_z+referenceAltitude
+                altMeters=uas_altitude/3.28084
                 exif_sample_date_utc=uas_sample_date_utc[0:4]+'-'+uas_sample_date_utc[5:7]+'-'+ uas_sample_date_utc[8:10]
                 exif_sample_time_utc=uas_sample_time_utc[0:12]
                 dateTimeStr=exif_sample_date_utc + ' ' + exif_sample_time_utc
@@ -768,7 +739,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
                         image.close()
                     elif imageType=='dng':
                         imageName=imagefilepath
-                        print("Updating GPS EXIF for Image Name", imageName, "Latitude:", uas_latitude, "Longitude:", uas_longitude, )
+                        #print("Updating GPS EXIF for Image Name", imageName, "Latitude:", uas_latitude, "Longitude:", uas_longitude, )
                         ll = subprocess.Popen(["exiftool", "-GPSLatitude=" + str(uas_latitude), "-GPSLongitude=" + str(uas_longitude), imageName],stdout=subprocess.PIPE)
                         output, err = ll.communicate()
                         ll.kill()
@@ -787,11 +758,8 @@ with open(plotRangePath, 'w') as plotRangeFile:
         with open(uasMetadataFile, 'w') as csvfile:
             header = csv.writer(csvfile)
             header.writerow(
-                ['record_id', 'image_file_name','flight_id', 'sensor_id', 'uas_position_x',
-                 'uas_position_y', 'uas_position_z', 'uas_latitude','uas_longitude','uas_sampling_date_utc','uas_sampling_time_utc',
-                 'uas_lat_zone', 'uas_long_zone','uas_altitude_reference','cam_position_x','cam_position_y', 'cam_position_z',
-                 'cam_latitude','cam_longitude','cam_sampling_date_utc','cam_sampling_time_utc','cam_lat_zone', 'cam_long_zone',
-                 'cam_altitude_reference', 'md5sum', 'notes'])
+                ['record_id', 'image_file_name','flight_id', 'sensor_id', 'date_utc','time_utc','position',
+                 'altitude','altitude_ref','gcp_world_coords','gcp_pixel_coords','md5sum','position_source' 'notes'])
         csvfile.close()
 
         #with open(uasMetadataFile, 'ab') as csvfile:
@@ -801,9 +769,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 fileline = csv.writer(csvfile)
                 fileline.writerow(
                     [lineitem[0], lineitem[1], lineitem[2], lineitem[3], lineitem[4], lineitem[5], lineitem[6], lineitem[7],
-                     lineitem[8], lineitem[9], lineitem[10], lineitem[12], lineitem[11], lineitem[13], lineitem[14],
-                     lineitem[15],lineitem[16],lineitem[17],lineitem[18],lineitem[19],lineitem[20],lineitem[21],lineitem[22],
-                     lineitem[23],lineitem[24]])
+                     lineitem[8], lineitem[9], lineitem[10], lineitem[11], lineitem[12], lineitem[13]])
             # Kludge to get rid of blank last line in the file which causes an empty row to be loaded into the database
             # when using LOAD DATA INFILE procedure!!
             #csvfile.seek(-2, os.SEEK_END)
@@ -815,7 +781,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
 
         print('Generating SQL file for DJI metadata:', metadataSqlFilePath)
         #SET uas_position=ST_PointFromText(CONCAT('POINT(',uas_position_x,' ',uas_position_y,')')),uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');"""
-        loadMetCmd = """LOAD DATA LOCAL INFILE '""" + uasMetadataFile + """' INTO TABLE uas_images FIELDS TERMINATED BY ','""" + """ LINES TERMINATED BY '\\r' IGNORE 1 LINES (record_id,image_file_name,flight_id,sensor_id,uas_position_x,uas_position_y,uas_position_z,uas_latitude,uas_longitude,@uas_sampling_date_utc,uas_sampling_time_utc,uas_lat_zone,uas_long_zone,uas_altitude_reference,cam_position_x,cam_position_y,cam_position_z,cam_latitude,cam_longitude,cam_sampling_date_utc,cam_sampling_time_utc,cam_lat_zone,cam_long_zone,cam_altitude_reference,md5sum,notes) SET uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');\n"""
+        loadMetCmd = """LOAD DATA LOCAL INFILE '""" + uasMetadataFile + """' INTO TABLE uas_images FIELDS TERMINATED BY ','""" + """ LINES TERMINATED BY '\\r' IGNORE 1 LINES (record_id,image_file_name,flight_id,sensor_id,uas_position_x,uas_position_y,uas_altitude,uas_latitude,uas_longitude,@uas_sampling_date_utc,uas_sampling_time_utc,uas_lat_zone,uas_long_zone,uas_altitude_reference,cam_position_x,cam_position_y,cam_position_z,cam_latitude,cam_longitude,cam_sampling_date_utc,cam_sampling_time_utc,cam_lat_zone,cam_long_zone,cam_altitude_reference,md5sum,notes) SET uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');\n"""
         with open(metadataSqlFilePath, 'a+') as sqlFile:
             sqlFile.write(loadMetCmd)
 

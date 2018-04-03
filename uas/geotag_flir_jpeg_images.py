@@ -24,7 +24,7 @@ secsInDay = 86400
 gpsEpoch = (1980, 1, 6, 0, 0, 0)  # (year, month, day, hh, mm, ss)
 null_date = '0000/00/00'
 null_time = '00:00:00'
-bufsize = 1  # Use line buffering, i.e. output every line to the file.
+#bufsize = 1  # Use line buffering, i.e. output every line to the file.
 
 def UTCFromGps(gpsWeek, SOW, leapSecs=16):
     # A Python implementation of GPS related time conversions.
