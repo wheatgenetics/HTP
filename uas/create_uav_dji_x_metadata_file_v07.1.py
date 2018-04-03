@@ -673,7 +673,9 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 pt=numpy.array([uas_longitude,uas_latitude]) # UAS position
                 nearest = plotKDTree.query(pt, k=1, distance_upper_bound=6) # Find the nearest plot centroid for pt
                 plotID=plotCentroidID[nearest[1]][2] # Lookup the plot given the plot centroid
+
                 # Build the list of plots intersected by points on the flight path of a range
+
                 if plotID not in intersectedPlots and plots[plotID][1].contains(Point(uas_longitude,uas_latitude)) :
                     intersectedPlots[plotID]=[rangeSegment,plotID,plots[plotID][1].wkt,timestamp]
                     print('*',rangeSegment,plotID,plots[plotID][1].wkt,timestamp)
@@ -707,7 +709,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 #
 
                 try:
-                    if updateExif='Y':
+                    if updateExif=='Y':
                         imageName=imagefilepath
                         if uas_longitude < 0:
                             uas_longitude_ref='W'
