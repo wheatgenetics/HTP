@@ -229,7 +229,6 @@ def get_image_exif_data(filename):
         elif longRefStr == "E":
             cam_longitude = (float(lon)+ (float(lonMins)/60) + lonSecsDec/3600)
 
-
     # Get Camera Image Time
 
         if exifImageDateTime in tags:
