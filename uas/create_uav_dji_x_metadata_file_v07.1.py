@@ -306,7 +306,6 @@ def interpolate_time(fflightLog):
     return gpsEventDict, tzone
 
 
-
 def hashfilelist(afile, blocksize=65536):
     # Function used to compute an MD5 checksum
     hasher = hashlib.md5()
