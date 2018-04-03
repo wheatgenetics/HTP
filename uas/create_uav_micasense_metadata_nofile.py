@@ -189,7 +189,6 @@ for uasFolder in uasFolderPathList:
     flightFolder=os.path.split(uasFolder[:-1])
     dateStr, timeStr, plannedElevation, camStr, cameraAngle, imgTypeStr, seqStr = parse_flight_folder_name(flightFolder[1])
 
-
     # Process each image sub-folder within each Micasense data set i.e. 000,001,002...nnn
 
     uasSubFolderList=[]
