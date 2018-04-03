@@ -68,7 +68,7 @@ from __future__ import unicode_literals
 # '-e' or '--expt':     'Plot prefix for experiment',default='18ASH%')
 # '-y' or '--lonoffset':'Longitude offset in degrees',default=0.0)  Used to correct error in log file longitude
 # '-z' or '--latoffset':'Latitude offset in degrees',default=0.0)   User to correct error in log file latitude
-#
+# '-u' or '--update':   'Update EXIF poisition data',default='N'
 #
 
 __author__ = 'mlucas'
@@ -449,6 +449,8 @@ cmdline.add_argument('-y', '--lonoffset',help='Longitude offset in degrees',defa
 
 cmdline.add_argument('-z', '--latoffset',help='Latitude offset in degrees',default=0.0)
 
+cmdline.add_argument('-u', '--update',help='Update EXIF poisition data',default='N')
+
 
 args = cmdline.parse_args()
 
@@ -478,6 +480,7 @@ metadataSqlFilePath=outPath + 'uasMetadataLoad.sql'
 plotPrefix=args.expt
 lonOffset=args.lonoffset # Parameter used in interpolation function to correct error in longitude (degrees)
 latOffset=args.latoffset # Parameter used in interpolation function to correct error in latitude (degrees)
+updateExif=args.update
 
 imageType = args.type
 renameImages=args.rename
@@ -700,46 +703,33 @@ with open(plotRangePath, 'w') as plotRangeFile:
 
                 metadatalist.append(metadata_record)
                 #
-                # Update the EXIF GPS data in each image
+                # Update the EXIF GPS data in each image using exiftool
                 #
-                latDMS=decimalDegrees2DMS(uas_latitude,'Latitude')
-                latFields=latDMS.split(':')
-                latDegrees=int(latFields[0])
-                latMins=int(latFields[1])
-                latSecs=float(latFields[2][0:(len(latFields[2])-1)])
-                latRef=latFields[2][-1]
-                lonDMS=decimalDegrees2DMS(uas_longitude,'Longitude')
-                lonFields=lonDMS.split(':')
-                lonDegrees=int(lonFields[0])
-                lonMins=int(lonFields[1])
-                lonSecs = float(lonFields[2][0:(len(lonFields[2]) - 1)])
-                lonRef = lonFields[2][-1]
 
-                altRef=0 # Above Sea Level
-                altMeters=uas_altitude/3.28084
-                exif_sample_date_utc=uas_sample_date_utc[0:4]+'-'+uas_sample_date_utc[5:7]+'-'+ uas_sample_date_utc[8:10]
-                exif_sample_time_utc=uas_sample_time_utc[0:12]
-                dateTimeStr=exif_sample_date_utc + ' ' + exif_sample_time_utc
                 try:
-                    if imageType=='jpg':
-                        with open(newimagefilepath, 'rb') as image:
-                            #print("Writing EXIF data for ", newimagefilepath)
-
-                            exif_dict=piexif.load(newimagefilepath)
-                            exif_dict['GPS'][piexif.GPSIFD.GPSLatitudeRef]=latRef
-                            exif_dict['GPS'][piexif.GPSIFD.GPSLatitude]=((latDegrees,1),(latMins,1),(int(latSecs * 1000.0),1000))
-                            exif_dict['GPS'][piexif.GPSIFD.GPSLongitudeRef]=lonRef
-                            exif_dict['GPS'][piexif.GPSIFD.GPSLongitude] = ((lonDegrees, 1), (lonMins, 1), (int(lonSecs * 1000.0), 1000))
-                            exif_dict['GPS'][piexif.GPSIFD.GPSAltitudeRef]=altRef
-                            exif_dict['GPS'][piexif.GPSIFD.GPSAltitude]=(int(altMeters * 1000.0), 1000)
-                            exif_dict['Exif'][piexif.ExifIFD.DateTimeOriginal] = dateTimeStr
-                            exif_bytes=piexif.dump(exif_dict)
-                            piexif.insert(exif_bytes,newimagefilepath)
-                        image.close()
-                    elif imageType=='dng':
+                    if updateExif='Y':
                         imageName=imagefilepath
-                        #print("Updating GPS EXIF for Image Name", imageName, "Latitude:", uas_latitude, "Longitude:", uas_longitude, )
-                        ll = subprocess.Popen(["exiftool", "-GPSLatitude=" + str(uas_latitude), "-GPSLongitude=" + str(uas_longitude), imageName],stdout=subprocess.PIPE)
+                        if uas_longitude < 0:
+                            uas_longitude_ref='W'
+                        else:
+                            uas_longitude_ref='E'
+                        if uas_latitude < 0:
+                            uas_latitude_ref= 'S'
+                        else:
+                            uas_latitude_ref='N'
+                        uas_altitude_ref = '+'  # Above Sea Level
+                        print("Updating GPS EXIF for Image Name", imageName, "Latitude:", uas_latitude,
+                              "Longitude:", uas_longitude, "Latitude REf:", uas_latitude_ref,
+                              "Longitude Ref:", uas_longitude_ref,"Altitude:", uas_altitude,
+                              "Altitude REf:", uas_altitude_ref, )
+                        ll = subprocess.Popen(["exiftool",
+                                               "-GPSLatitude=" + str(uas_latitude),
+                                               "-GPSLatitudeRef=" + uas_latitude_ref,
+                                               "-GPSLongitude=" + str(uas_longitude),
+                                               "-GPSLongitudeRef=" + uas_longitude_ref,
+                                               "-GPSAltitude=" + str(uas_altitude),
+                                               "-GPSAltitudeRef=" + (uas_altitude_ref),
+                                               imageName],stdout=subprocess.PIPE)
                         output, err = ll.communicate()
                         ll.kill()
                 except:
