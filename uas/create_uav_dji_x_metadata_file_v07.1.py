@@ -6,8 +6,8 @@ from __future__ import unicode_literals
 # Program: create_uas_dji_x_metadata_file
 #
 # Version 0.7.1 Modifications to write metadata file compatible with revised uas_images database table.
-# Made Latitude/Longitude degree correction command line parameters. Eliminated unused functions.
-#
+# Made Latitude/Longitude degree correction command line parameters. Added optional capability to update
+# GPS EXIF data in the images using exiftool. Eliminated unused functions.
 #
 # Version 0.7 March 29,2018 Modifications to operate with revised latitude/longitude based database plot_map table
 #
@@ -70,7 +70,8 @@ from __future__ import unicode_literals
 # '-z' or '--latoffset':'Latitude offset in degrees',default=0.0)   User to correct error in log file latitude
 # '-u' or '--update':   'Update EXIF poisition data',default='N'
 #
-
+# TODO: Add capability to generate output for the revised uas_run table schema
+#
 __author__ = 'mlucas'
 
 import subprocess
@@ -82,12 +83,11 @@ import argparse
 import hashlib
 import os
 import glob
-import piexif
+
 import config
 import mysql.connector
 from mysql.connector import errorcode
 
-import utm
 import datetime
 import pytz
 from timezonefinder import TimezoneFinder
@@ -108,8 +108,8 @@ null_date = '0000/00/00'
 null_time = '00:00:00'
 epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.UTC)
 
-log='LOG' # GPS position obtained from log file
-img='EXIF' # GPS position obtained from images
+logSource='LOG' # GPS position obtained from log file
+imgSource='EXIF' # GPS position obtained from images
 gcp_world_coords = None
 gcp_pixel_coords = None
 uas_position_source=None
@@ -326,11 +326,11 @@ def init_metadata_record():
     imagefilename=None
     uas_sample_date_utc=null_date
     uas_sample_time_utc=null_time
-    uas_position=None
+    position=None
     uas_altitude=None
     f_checksum=None
     notes=''
-    blankrow = [record_id, imagefilename, flightId, sensor_id,uas_sample_date_utc, uas_sample_time_utc,uas_position,
+    blankrow = [record_id, imagefilename, flightId, sensor_id,uas_sample_date_utc, uas_sample_time_utc,position,
                 uas_altitude,uas_altitude_ref,gcp_world_coords,gcp_pixel_coords,f_checksum, uas_position_source,notes]
     return blankrow
 
@@ -449,7 +449,7 @@ cmdline.add_argument('-y', '--lonoffset',help='Longitude offset in degrees',defa
 
 cmdline.add_argument('-z', '--latoffset',help='Latitude offset in degrees',default=0.0)
 
-cmdline.add_argument('-u', '--update',help='Update EXIF poisition data',default='N')
+cmdline.add_argument('-u', '--update',help='Update EXIF GPS position data',default='N')
 
 
 args = cmdline.parse_args()
@@ -459,8 +459,9 @@ uasFolderPath = args.dir
 uasFolderList=[]
 
 # Search for data set folders that need to be processed and store in a list
-# NB '' item in os.path.join adds an os-independent trailing slash character
+# NB '' item in os.path.join adds an os-independent trailing slash character if one is not already present
 
+uasFolderPath=os.path.join(uasFolderPath,'')
 uasFolderList=[os.path.join(uasFolderPath,name,'') for name in os.listdir(uasFolderPath) if os.path.isdir(os.path.join(uasFolderPath,name))]
 if uasFolderList==[]:
     print("No uas data sets found in uav_staging...Exiting")
@@ -650,7 +651,7 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 uas_longitude=gpsEvents[gpsEventsKey][3]
                 # Create a WKT representation of the position POINT object using shapely dumps function
                 uas_position = dumps(Point(uas_longitude, uas_latitude))
-                uas_position_source = img # Position data derived from image EXIF
+                uas_position_source = imgSource # Position data derived from image EXIF
 
                 uas_altitude = gpsEvents[gpsEventsKey][4]
                 uas_sample_date_utc=gpsEvents[gpsEventsKey][0]
@@ -666,7 +667,8 @@ with open(plotRangePath, 'w') as plotRangeFile:
                 metadata_record[8] = uas_altitude_ref
                 metadata_record[9] = gcp_world_coords
                 metadata_record[10] = gcp_pixel_coords
-                metadata_record[12] = log
+                metadata_record[12] = uas_position_source
+                metadata_record[13] = ''
 
             # Determine whether the point corresponding to the image position lies within a plot
 
@@ -678,7 +680,8 @@ with open(plotRangePath, 'w') as plotRangeFile:
 
                 if plotID not in intersectedPlots and plots[plotID][1].contains(Point(uas_longitude,uas_latitude)) :
                     intersectedPlots[plotID]=[rangeSegment,plotID,plots[plotID][1].wkt,timestamp]
-                    print('*',rangeSegment,plotID,plots[plotID][1].wkt,timestamp)
+                    print('Plot intersection found for range: ' + str(rangeSegment),' Plot ID: '+ plotID
+                          + ' Timestamp: '+ str(timestamp))
                     rangePlotLine = str(image_set) + ',' + plotID + ',"' + plots[plotID][1].wkt + '"\n'
                     plotRangeFile.write(rangePlotLine)
 
@@ -745,34 +748,40 @@ with open(plotRangePath, 'w') as plotRangeFile:
             print('*** Trying to continue...')
             pass
 
-        #with open(uasMetadataFile, 'wb') as csvfile:
         with open(uasMetadataFile, 'w') as csvfile:
             header = csv.writer(csvfile)
             header.writerow(
                 ['record_id', 'image_file_name','flight_id', 'sensor_id', 'date_utc','time_utc','position',
-                 'altitude','altitude_ref','gcp_world_coords','gcp_pixel_coords','md5sum','position_source' 'notes'])
+                 'altitude','altitude_ref','gcp_world_coords','gcp_pixel_coords','md5sum',
+                 'position_source','notes'])
         csvfile.close()
 
-        #with open(uasMetadataFile, 'ab') as csvfile:
+
         with open(uasMetadataFile, 'a') as csvfile:
             print('Generating metadata file', uasMetadataFile)
             for lineitem in metadatalist:
                 fileline = csv.writer(csvfile)
                 fileline.writerow(
-                    [lineitem[0], lineitem[1], lineitem[2], lineitem[3], lineitem[4], lineitem[5], lineitem[6], lineitem[7],
-                     lineitem[8], lineitem[9], lineitem[10], lineitem[11], lineitem[12], lineitem[13]])
+                    [lineitem[0], lineitem[1], lineitem[2], lineitem[3], lineitem[4], lineitem[5], lineitem[6], lineitem[7],lineitem[8], lineitem[9], lineitem[10], lineitem[11], lineitem[12], lineitem[13]])
+        csvfile.close()
+
+        with open(uasMetadataFile, 'rb+') as csvfile:
             # Kludge to get rid of blank last line in the file which causes an empty row to be loaded into the database
             # when using LOAD DATA INFILE procedure!!
-            #csvfile.seek(-2, os.SEEK_END)
-            #csvfile.truncate()
+            # Note that this only works on files opened in binary mode.
+            csvfile.seek(-2, os.SEEK_END)
+            csvfile.truncate()
         csvfile.close()
 
 
         # Create the SQL command file to load the uas_images metadata
 
         print('Generating SQL file for DJI metadata:', metadataSqlFilePath)
-        #SET uas_position=ST_PointFromText(CONCAT('POINT(',uas_position_x,' ',uas_position_y,')')),uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');"""
-        loadMetCmd = """LOAD DATA LOCAL INFILE '""" + uasMetadataFile + """' INTO TABLE uas_images FIELDS TERMINATED BY ','""" + """ LINES TERMINATED BY '\\r' IGNORE 1 LINES (record_id,image_file_name,flight_id,sensor_id,uas_position_x,uas_position_y,uas_altitude,uas_latitude,uas_longitude,@uas_sampling_date_utc,uas_sampling_time_utc,uas_lat_zone,uas_long_zone,uas_altitude_reference,cam_position_x,cam_position_y,cam_position_z,cam_latitude,cam_longitude,cam_sampling_date_utc,cam_sampling_time_utc,cam_lat_zone,cam_long_zone,cam_altitude_reference,md5sum,notes) SET uas_sampling_date_utc=STR_TO_DATE(@uas_sampling_date_utc,'%Y-%m-%d');\n"""
+        loadMetCmd = """LOAD DATA LOCAL INFILE '""" + uasMetadataFile + """' INTO TABLE uas_images FIELDS TERMINATED 
+        BY ','""" + """ LINES TERMINATED BY '\\r' IGNORE 1 LINES (record_id,image_file_name,flight_id,sensor_id,
+        @date_utc,time_utc,@position,altitude,altitude_ref,gcp_world_coords,gcp_pixel_coords,md5sum,position_source,notes) 
+        SET position=ST_PointFromText(@position),date_utc=STR_TO_DATE(@date_utc,'%Y/%m/%d');\n"""
+
         with open(metadataSqlFilePath, 'a+') as sqlFile:
             sqlFile.write(loadMetCmd)
 
