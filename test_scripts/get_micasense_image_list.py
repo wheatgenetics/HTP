@@ -58,5 +58,6 @@ print("Items in Dictionary after checking",len(imageCheckDict))
 for k,v in sorted(imageCheckDict.items()):
     for i in range(0,5):
         validImagePathList.append(v[i])
+
 pass
 
