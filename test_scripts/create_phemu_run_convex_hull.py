@@ -13,10 +13,15 @@ import mysql.connector
 from mysql.connector import errorcode
 import test_config
 import os
-import utm
+from pyproj import Proj, transform
 import csv
 from shapely.wkt import dumps
 from shapely.geometry import Point, LineString, Polygon,MultiPoint
+import pytz
+from tzlocal import get_localzone
+from timezonefinder import TimezoneFinder
+import datetime
+
 
 def convert_polygon_coord_system(plt):
     LonLatCoordString = 'POLYGON(('
@@ -75,8 +80,9 @@ def commit_and_close_db_connection(cursor,cnx):
 
 
 runList=[]
-
-phemuRunPath= '/Users/mlucas/Desktop/HTP_Database_Updates/phemu_run_update.csv'
+utmProj = Proj(init='epsg:32614') # Data is only from Kansas
+WGS84Proj = Proj(init='epsg:4326')
+phemuRunPath= '/Users/mlucas/Desktop/HTP_Database_Updates/phemu_run/phemu_run_update_latlong.csv'
 
 
 # Query the database for the experiment records
@@ -98,18 +104,19 @@ try:
             runId=rowA[1]
             startDate=rowA[2]
             startTime=rowA[3]
+            startDateStr=str(rowA[2])
+            startTimeStr=str(rowA[3])
             endDate=rowA[4]
             endTime=rowA[5]
             runFolder=rowA[6]
-            location=rowA[7]
-            region=rowA[8]
-            country=rowA[9]
-            notes=rowA[10]
-            surveyed=rowA[11]
+            notes=rowA[14]
+            surveyed=rowA[15]
+
             pointList = []
             cursorB.execute(get_htp_run_coords,(runId, ))
             for rowB in cursorB:
-               pointList.append((rowB[0], rowB[1]))
+                longitude_h, latitude_h = transform(utmProj, WGS84Proj, rowB[0], rowB[1])
+                pointList.append((longitude_h,latitude_h))
 
             if cursorB.rowcount ==0:
                 htpPolygon=None
@@ -118,13 +125,26 @@ try:
                 htpPolygon = dumps((MultiPoint(pointList)).convex_hull)
                 observationCount=cursorB.rowcount
 
-            runListItem = [recordId, runId,startDate,startTime,endDate,endTime,runFolder,location,region,country,notes,surveyed, htpPolygon,observationCount]
+            startYear, startMonth, startDay = startDateStr.split("-")
+            startHour, startMinute, startSecond = startTimeStr.split(':')
+            tf = TimezoneFinder()
+            tzone = tf.timezone_at(lng=longitude_h, lat=latitude_h)
+            tz=pytz.timezone(tzone)
+            utc_dt = datetime.datetime(int(startYear), int(startMonth), int(startDay), int(startHour), int(startMinute),
+                                       int(startSecond), tzinfo=pytz.utc)
+            dt = utc_dt.astimezone(tz)
+
+            localDate=dt.date()
+            localTime=dt.time()
+
+            runListItem = [recordId, runId,startDate,startTime,endDate,endTime,localDate,localTime,runFolder,notes,surveyed, htpPolygon,observationCount]
             print "phemu_htp   ",cursorB.rowcount,runListItem
-            #runList.append(runListItem)
+
             pointList = []
             cursorC.execute(get_image_run_coords, (runId,))
             for rowC in cursorC:
-                pointList.append((rowC[0], rowC[1]))
+                longitude_i, latitude_i = transform(utmProj, WGS84Proj, rowC[0], rowC[1])
+                pointList.append((longitude_i, latitude_i))
 
             if cursorC.rowcount == 0:
                 imagePolygon=None
@@ -158,13 +178,13 @@ commit_and_close_db_connection(cursorC, cnxC)
 with open(phemuRunPath,'wb') as csvFile:
     print 'Writing phemu_run polygon File'
     header=csv.writer(csvFile)
-    header.writerow(['record_id', 'run_id','start_date_utc','start_time_utc','end_date_utc','end_time_utc','run_folder_name','location','region','country','notes','surveyed', 'htp_polygon','observation_count', 'image_polygon','image_count'])
+    header.writerow(['record_id', 'run_id','start_date_utc','start_time_utc','end_date_utc','end_time_utc','start_date_local','start_time_local','run_folder_name','notes','surveyed', 'htp_polygon','observation_count', 'image_polygon','image_count'])
 csvFile.close()
 
 with open(phemuRunPath,'ab') as csvFile:
     for row in runList:
         fileline = csv.writer(csvFile,quoting=csv.QUOTE_ALL,lineterminator = ',\n')
-        fileline.writerow([row[0], row[1], row[2],row[3],row[4],row[5],row[6],row[7],row[8],row[9],row[10],row[11],row[12],row[13],row[14],row[15]])
+        fileline.writerow([row[0], row[1], row[2],row[3],row[4],row[5],row[6],row[7],row[8],row[9],row[10],row[11],row[12],row[13],row[14]])
     # Kludge to get rid of blank last line in the file which causes an empty row to be loaded into the database
     # when using LOAD DATA INFILE procedure!!
     csvFile.seek(-2, os.SEEK_END)

@@ -222,6 +222,7 @@ except OSError as exception:
         raise
 # Rename and copy into Renamed directory
 alti = [] # altitude
+finalImList.sort()
 for im in finalImList:
     imObj = im.split(os.sep)  # os.sep for platform independence
     numOfObj = len(imObj)
@@ -390,6 +391,7 @@ except OSError as exception:
     if exception.errno != errno.EEXIST:
         raise
 rawImages = os.listdir(filePath + os.sep + "renamed")
+rawImages.sort()
 for im in rawImages:
     print("Calibrating: %s" % filePath + os.sep + "renamed" + os.sep+im)
     flightImageRaw=plt.imread(filePath + os.sep + "renamed" + os.sep+im)
@@ -402,7 +404,6 @@ for im in rawImages:
     flightReflectanceImage_u16=flightReflectanceImage*dnMax
     flightReflectanceImage_u16=flightReflectanceImage_u16.astype(numpy.uint16)
     cv2.imwrite(filePath + os.sep + "calibrated" + os.sep + im, flightReflectanceImage_u16)
-sys.exit()
 #------------------------------------------------------------------------
 # Copy EXIF attributes
 # Copy EXIF:
@@ -425,4 +426,7 @@ for img in os.listdir(calPath):
         os.remove(os.path.join(calPath,img))
     elif img.endswith(".tif_original"):
         os.remove(os.path.join(calPath,img))
+
+sys.exit()
+
 

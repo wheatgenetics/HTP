@@ -3,7 +3,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 #
-# Program: create_uas_metadata_file_micasense
+# Program: preprocess_micasense_images.py
+#
+# Formerly create_uas_metadata_file_micasense
 #
 # Version: 0.1 April 10,2017 - Based on create_uav_metadata_file.py
 # Version: 0.2 December 1,2017 - Removed reference to experiment_id
@@ -41,9 +43,10 @@ import pytz # Removed temporarily since numpy requirement can't install on Windo
 from tzlocal import get_localzone # Removed temporarily since numpy requirement can't install on Windows
 from timezonefinder import TimezoneFinder # Removed temporarily since numpy requirement can't install on Windows
 import datetime
+from collections import defaultdict
 
-print imagepreprocess.__name__
-print sys.path
+#print(imagepreprocess.__name__)
+#print(sys.path)
 
 getcontext().prec = 8
 getcontext()
@@ -111,18 +114,18 @@ def create_flightId_from_image_datetime(metadataList,longitude,latitude):
 
     flight_id='uas_'+utcStartDate+'_'+utcStartTime+'_'+utcEndDate+'_'+utcEndTime
 
-    #tf = TimezoneFinder()
-    #tzone = tf.timezone_at(lng=longitude, lat=latitude)
-    #tz = pytz.timezone(tzone)
-    #utc_dt = datetime.datetime(int(startYear), int(startMonth), int(startDay), int(startHour), int(startMinute),
-    #                           int(startSecond), tzinfo=pytz.utc)
-    #dt = utc_dt.astimezone(tz)
-    #
-    #localDate = dt.date()
-    #localTime = dt.time()
+    tf = TimezoneFinder()
+    tzone = tf.timezone_at(lng=longitude, lat=latitude)
+    tz = pytz.timezone(tzone)
+    utc_dt = datetime.datetime(int(startYear), int(startMonth), int(startDay), int(startHour), int(startMinute),
+                               int(startSecond), tzinfo=pytz.utc)
+    dt = utc_dt.astimezone(tz)
 
-    #return flight_id,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime
-    return flight_id, utcStartDate, utcStartTime, utcEndDate, utcEndTime
+    localDate = dt.date()
+    localTime = dt.time()
+
+    return flight_id,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime
+    #return flight_id, utcStartDate, utcStartTime, utcEndDate, utcEndTime
 
 
 def check_manifest(manifest):
@@ -130,6 +133,57 @@ def check_manifest(manifest):
     # Check for presence of manifest file and that all data set files are present
     manifest_status=False
     return manifest_status
+
+def get_micasense_image_list(subFolder,imageType):
+
+    pathToImages = os.path.join(subFolder + '*.' + imageType)
+
+    validImageList = []
+    imageCheckDict = defaultdict(list)
+
+    imageFileList = os.listdir(subFolder)
+    imageFileList.sort()
+
+    for f in imageFileList:
+
+        imageName = subFolder + f
+        a = f.split('/')[-1]
+        primaryImageName = f.rpartition('_')[0]
+        imageSize = os.stat(imageName).st_size
+        imageCheckDict[primaryImageName].append([f, imageSize])
+
+    print("Items in Dictionary before checking", len(imageCheckDict))
+
+    for k, v in sorted(imageCheckDict.items()):
+        truncatedImage = False
+
+    # Check for image sets which have less than 5 images or more than 5 images and remove them from the valid list if found
+
+        if len(v) != 5:
+            imageCheckDict.pop(k, )
+            print('Deleted Key', k)
+            break
+
+    # Check for images that have been truncated (less than a threshold) and remove the set from the valid list if found
+
+        for s in range(0, 5):
+            # print(k,v[s][0],v[s][1])
+            imageSize = v[s][1]
+            if imageSize < 2465260:
+                truncatedImage = True
+        if truncatedImage:
+            imageCheckDict.pop(k, )
+            print('Deleted Key Due to Truncated Image', k)
+
+    print("Items in Dictionary after checking", len(imageCheckDict))
+
+    # Build the list of valid images to be processed further
+
+    for k, v in sorted(imageCheckDict.items()):
+        for i in range(0, 5):
+            validImageList.append(v[i][0])
+
+    return validImageList
 
 # Get command line input.
 
@@ -198,7 +252,8 @@ for uasFolder in uasFolderPathList:
     for subFolder in uasSubFolderList:
         print("Processing Data Set sub-folder: "+subFolder)
         # Get the list of image files in the sub-folder
-        imagefiles = get_image_file_list(subFolder, imageType)
+        #imagefiles = get_image_file_list(subFolder, imageType)
+        imagefiles = get_micasense_image_list(subFolder, imageType)
         if len(imagefiles) == 0:
             print("There were no image files found in ", uasPath)
             pass
@@ -243,10 +298,10 @@ for uasFolder in uasFolderPathList:
 
     # Compute the flight ID from the image timestamps to support case where logfile is not available
 
-    #flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime=\
-    #   create_flightId_from_image_datetime(metadataList,longitude,latitude)
-    flightId, utcStartDate, utcStartTime, utcEndDate, utcEndTime = \
-        create_flightId_from_image_datetime(metadataList, longitude, latitude)
+    flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime=\
+       create_flightId_from_image_datetime(metadataList,longitude,latitude)
+    #flightId, utcStartDate, utcStartTime, utcEndDate, utcEndTime = \
+    #   create_flightId_from_image_datetime(metadataList, longitude, latitude)
 
     print("")
     print("Connecting to Database...")
