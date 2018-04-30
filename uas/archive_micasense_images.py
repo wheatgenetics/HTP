@@ -161,7 +161,7 @@ def get_micasense_image_list(subFolder,imageType):
 
         if len(v) != 5:
             imageCheckDict.pop(k, )
-            print('Deleted Key', k)
+            print('Deleted Key', k, ' Image set does not have 5 images.')
             break
 
     # Check for images that have been truncated (less than a threshold) and remove the set from the valid list if found
@@ -233,12 +233,6 @@ for uasFolder in uasFolderPathList:
     metadataRecord = []
     metadataList = []
 
-    # Calculate flightID using the first and last records in the DJI log file - Deprecated due to log file unavailability
-
-    #uasLogFileList = [os.path.join(uasFolder, logfile) for logfile in os.listdir(uasFolder) if logfile.endswith(".csv")]
-    #uasLogFile= uasLogFileList[0]
-    #flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime=create_flightId_from_logfile(uasLogFile)
-
     # Parse the flight folder name to extract parameters needed for the uas_run table entry
 
     flightFolder=os.path.split(uasFolder[:-1])
@@ -251,8 +245,9 @@ for uasFolder in uasFolderPathList:
 
     for subFolder in uasSubFolderList:
         print("Processing Data Set sub-folder: "+subFolder)
+
         # Get the list of image files in the sub-folder
-        #imagefiles = get_image_file_list(subFolder, imageType)
+
         imagefiles = get_micasense_image_list(subFolder, imageType)
         if len(imagefiles) == 0:
             print("There were no image files found in ", uasPath)
@@ -332,13 +327,13 @@ for uasFolder in uasFolderPathList:
 
     get_flight_coords = "SELECT ST_X(position),ST_Y(position) from uas_images_test where flight_id like %s"
 
-    #db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
-    #                "end_time_utc,start_time_local,start_date_local,flight_filename,planned_elevation_m,sensor_id," \
-    #                "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
-
     db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
-                    "end_time_utc,flight_filename,planned_elevation_m,sensor_id," \
-                    "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
+                    "end_time_utc,start_time_local,start_date_local,flight_filename,planned_elevation_m,sensor_id," \
+                    "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
+
+    #db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
+    #               "end_time_utc,flight_filename,planned_elevation_m,sensor_id," \
+    #                "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
 
     insertCount=0
     for lineitem in metadataList:
@@ -357,10 +352,10 @@ for uasFolder in uasFolderPathList:
 
     imageCount=insertCount
     flightPolygon=dumps((MultiPoint(pointList)).convex_hull)
-    #flightRow=(record_id,flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localTime,localDate,
-    #           flightFolder[1],plannedElevation,sensorId,cameraAngle,flightPolygon,imageCount)
-    flightRow = (record_id, flightId, utcStartDate, utcStartTime, utcEndDate, utcEndTime,flightFolder[1],
-                 plannedElevation, sensorId, cameraAngle, flightPolygon, imageCount)
+    flightRow=(record_id,flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localTime,localDate,
+               flightFolder[1],plannedElevation,sensorId,cameraAngle,flightPolygon,imageCount)
+    #flightRow = (record_id, flightId, utcStartDate, utcStartTime, utcEndDate, utcEndTime,flightFolder[1],
+    #             plannedElevation, sensorId, cameraAngle, flightPolygon, imageCount)
     cursorD.execute(db_insert_run,flightRow)
     cnx.commit()
     cursorA.close()
