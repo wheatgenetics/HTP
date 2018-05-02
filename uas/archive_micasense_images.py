@@ -164,12 +164,12 @@ def get_micasense_image_list(subFolder,imageType):
             print('Deleted Key', k, ' Image set does not have 5 images.')
             break
 
-    # Check for images that have been truncated (less than a threshold) and remove the set from the valid list if found
+    # Check for images that have been truncated (less than  2Mb or 2097152 bytes) and remove the set from the valid list if found
 
         for s in range(0, 5):
             # print(k,v[s][0],v[s][1])
             imageSize = v[s][1]
-            if imageSize < 2465260:
+            if imageSize < 2097152:
                 truncatedImage = True
         if truncatedImage:
             imageCheckDict.pop(k, )
