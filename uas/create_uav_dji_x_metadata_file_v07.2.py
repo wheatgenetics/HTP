@@ -427,7 +427,6 @@ def commit_and_close_db_connection(cursor,cnx):
 
     return
 
-
 # Get command line input.
 
 cmdline = argparse.ArgumentParser()
