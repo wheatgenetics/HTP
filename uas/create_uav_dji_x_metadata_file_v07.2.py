@@ -462,12 +462,20 @@ uasFolderList=[]
 # Search for data set folders that need to be processed and store in a list
 # NB '' item in os.path.join adds an os-independent trailing slash character if one is not already present
 
+
+ignoredDirs={"DCIM"}
 uasFolderPath=os.path.join(uasFolderPath,'')
-uasFolderList=[os.path.join(uasFolderPath,name,'') for name in os.listdir(uasFolderPath) if os.path.isdir(os.path.join(uasFolderPath,name))]
+uasFolderList=[os.path.join(uasFolderPath,name,'') for name in os.listdir(uasFolderPath) if (os.path.isdir(os.path.join(uasFolderPath,name) and name not in ignoredDirs))]
 uasFolderList.sort()
+
 if uasFolderList==[]:
     print("No uas data sets found in uav_staging...Exiting")
     sys.exit()
+
+for uasPath in uasFolderList:
+    folder=uasPath.split('/')[-2]
+    if folder in ignoredDirs:
+        uasFolderList.remove(uasPath)
 
 csvFlightLog=glob.glob(uasFolderPath+'*_v2.csv')
 if len(csvFlightLog) > 1:
@@ -536,18 +544,18 @@ print('Flight ID:', flightId)
 if debugMode == 'Y':
     debugPath=outPath+ 'gpsDebugEvents.csv'
     #with open('/bulk/mlucas/test/gpsEvents.csv', 'wb') as csvfile:
-    with open(debugPath, 'wb') as csvfile:
+    with open(debugPath, 'w') as csvfile:
         header = csv.writer(csvfile)
         header.writerow(
-            ['newTime','newDateStr', 'newTimeStr', 'newLat', 'newLong', 'newAlt', 'takingVideo', 'interpolated','newTime', 'newUtmPositionX', 'newUtmPositionY', 'newUtmLatZone', 'newUtmLongZone','segment'])
+            ['newTime','newDateStr', 'newTimeStr', 'newLat', 'newLong', 'newAlt', 'takingVideo', 'interpolated','newTime','segment'])
     csvfile.close()
 
     #with open('/bulk/mlucas/test/gpsEvents.csv', 'ab') as csvfile:
-    with open(debugPath, 'ab') as csvfile:
+    with open(debugPath, 'a') as csvfile:
         print('Generating gpsEvents file', debugPath)
         for lineitem in sorted(gpsEvents.iteritems()):
             fileline = csv.writer(csvfile)
-            fileline.writerow([lineitem[0], lineitem[1][0], lineitem[1][1], lineitem[1][2], lineitem[1][3], lineitem[1][4], lineitem[1][5], lineitem[1][6],lineitem[1][7], lineitem[1][8], lineitem[1][9], lineitem[1][10],lineitem[1][11],lineitem[1][12]])
+            fileline.writerow([lineitem[0], lineitem[1][0], lineitem[1][1], lineitem[1][2], lineitem[1][3], lineitem[1][4], lineitem[1][5], lineitem[1][6],lineitem[1][7], lineitem[1][8]])
     csvfile.close()
 #**********************************************
 
