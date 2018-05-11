@@ -35,7 +35,6 @@ else:
 
 plot_insert = "INSERT INTO plot_map (record_id,plot_id,plot_polygon,C1_1_long,C1_1_lat,C2_1_long,C2_1_lat,C2_2_long,C2_2_lat,C1_2_long,C1_2_lat) VALUES (%s,%s,ST_PolygonFromText(%s),%s,%s,%s,%s,%s,%s,%s,%s)"
 
-
 plotMapList=[]
 plotPointList=[]
 recordId=None
