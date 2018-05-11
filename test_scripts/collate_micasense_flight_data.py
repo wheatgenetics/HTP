@@ -159,4 +159,5 @@ underscore='_'
 outputFlightPath=os.path.join(outputPath,underscore.join(validatedFlightParams))
 print('Output Folder:',outputFlightPath)
 
+
 sys.exit()
