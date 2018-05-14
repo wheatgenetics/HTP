@@ -24,10 +24,10 @@ import time
 import sys
 import os
 import argparse
-import imagepreprocess
-from imagepreprocess import *
+import uas.imagepreprocess
+from uas.imagepreprocess import *
 
-print imagepreprocess.__name__
+print uas.imagepreprocess.__name__
 print sys.path
 
 # Get command line input.

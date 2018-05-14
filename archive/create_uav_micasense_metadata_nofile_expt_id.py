@@ -30,8 +30,8 @@ import time
 import sys
 import os
 import argparse
-import imagepreprocess
-from imagepreprocess import *
+import uas.imagepreprocess
+from uas.imagepreprocess import *
 from shapely import wkt
 from shapely.wkt import dumps
 from shapely.geometry import Point,Polygon,MultiPoint
@@ -217,8 +217,6 @@ for uasFolder in uasFolderPathList:
             metadataRecord = []
             altitude = float(altitudeFeet) * 0.3048
             md5sum = calculate_checksum(newImageFilePath)
-            #md5sum = calculate_checksum(oldImageFilePath)
-            # metadataRecord=[imageFileName,flightId,sensorId,dateUTC,timeUTC,position.wkt,altitude,altitudeRef,md5sum,positionRef,notes]
             metadataRecord = [imageFileName, flightId, sensorId, dateUTC, timeUTC, position, altitude, altitudeRef,
                               md5sum, positionRef, notes]
             metadataList.append(metadataRecord)
@@ -274,19 +272,10 @@ for uasFolder in uasFolderPathList:
     cursorB.execute(db_check, (flightId, ))
     checkCount = cursorB.rowcount
     cursorC.execute(get_flight_coords,(flightId, ))
-    #if cursorC.rowcount != 0:
-    #    for row in cursorC:
-    #        longMin=float(row[0])
-    #        longMax=float(row[1])
-    #        latMin=float(row[2])
-    #        latMax=float(row[3])
     pointList=[]
     if cursorC.rowcount != 0:
         for row in cursorC:
             pointList.append((row[0],row[1]))
-    #print pointList
-    #flightPolygon=dumps(Polygon([(longMin,latMin),(longMin,latMax),(longMax,latMax),(longMax,latMin),(longMin,latMin)]))
-    #flightPolygon=dumps(MultiPoint(pointList)).convex_hull
     flightPolygon=dumps((MultiPoint(pointList)).convex_hull)
     flightRow=(record_id,flightId,startDate,startTime,endDate,endTime, flightFolder[1],experimentId,plannedElevation,sensorId,cameraAngle,flightPolygon)
     cursorD.execute(db_insert_run,flightRow)
@@ -351,9 +340,6 @@ for uasFolder in uasFolderPathList:
 #
 #
 #csvfile.close()
-
-
-# Connect to the wheatgenetics database
 
 
 # Exit the program gracefully
