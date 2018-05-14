@@ -14,6 +14,13 @@ import sys
 import argparse
 import datetime
 import re
+import subprocess
+import piexif # Use this to find start date and time of the 100th image
+import shutil
+import time
+from pathlib import Path
+
+
 
 # Command Line Inputs:
 #
@@ -110,6 +117,51 @@ def validate_flight_number(fltNumber):
 
     return validFlightNumber,flightNumber
 
+def getFlight_start_date_time(flightSet):
+    imageList = []
+    imageFileType = 'tif'
+    imagePath = os.path.join(flightSet, '000')
+    imageFileList = get_image_file_list(imagePath, imageFileType, imageList)
+    for i in imageFileList:
+        imageID = os.path.join(imagePath, imageFileList[1])
+        exif_dict = piexif.load(imageID)
+        dateTimeStr = exif_dict['Exif'][piexif.ExifIFD.DateTimeOriginal].decode('utf-8')
+        dateStr = dateTimeStr.split(' ')[0].replace(':', '')
+        timeStr = dateTimeStr.split(' ')[1].replace(':', '')
+        if dateStr[0:4] > '2015':
+            print("Flight Date and Start Time for Flight: ",flightSet ,dateStr, timeStr)
+            print()
+            break
+    return dateStr,timeStr
+
+def get_image_file_list(uasPath, imageType, imageFileList):
+    # Return a list of the names and sample date & time for all image files.
+
+    # Get list of files in uas staging directory
+
+    #print("Fetching list of image files...")
+
+    filestocheck = subprocess.check_output(['ls', '-1', uasPath], universal_newlines=True)
+
+    afile = ''
+    filelist = []
+
+    for char in filestocheck:
+        if char != '\n':
+            afile += char
+        else:
+            filelist.append(afile)
+            afile = ''
+
+            # Get the subset of files that are the image files
+
+    for f in filelist:
+        imageFileType=f.split('.')[1]
+        isimagefile = (f != '' and imageFileType == imageType)
+        if isimagefile:
+            imageFileList.append(f)
+    return imageFileList
+
 # Get command line input.
 
 cmdline = argparse.ArgumentParser()
@@ -121,13 +173,17 @@ cmdline.add_argument('-o', '--out', help='Output path')
 args = cmdline.parse_args()
 
 inputPath=args.dir
+#inputPath=os.path.join(inputPath,'')
 outputPath=args.out
+underscore='_'
+
+# Get the flight folder name and validate that the name conforms to naming convention
 
 inputFlightFolder=os.path.basename(inputPath)
 
 flightParams=inputFlightFolder.split('_')
 if len(flightParams) != 8:
-    print('InputFolderName is not in the correct format. Exiting...')
+    print('InputFolderName is not in the correct format...Exiting.')
     sys.exit()
 
 flightDate=flightParams[0]
@@ -151,13 +207,50 @@ validImageType,imageType=validate_image_type(imgType)
 fltNumber=flightParams[7]
 validFlightNumber,flightNumber=validate_flight_number(fltNumber)
 
-# Need to determine flightStart here....
-flightStart='173456'
+if not validDate or not validCamera or not validElevation or not validImageType or not validFlightNumber:
+    print('Input folder name does not conform to naming conventions...Exiting.')
 
-validatedFlightParams=(flightDate,flightStart,cameraType,plannedElevation,lensAngle,imageType,flightNumber)
-underscore='_'
-outputFlightPath=os.path.join(outputPath,underscore.join(validatedFlightParams))
-print('Output Folder:',outputFlightPath)
+# Determine the number of flight sets (nnnnSET) in the flight folder
 
+flightSets=[]
+flightSets=[os.path.join(inputPath,name,'') for name in os.listdir(inputPath) if os.path.isdir(os.path.join(inputPath,name))]
+flightSets.sort()
+
+if flightSets==[]:
+    print("No flight data sets found in uav_staging...Exiting")
+    sys.exit()
+
+# Formulate the flight folder names according to the naming standard
+
+try:
+    flightIndex=0
+    for count,flight in enumerate(flightSets):
+        originalFlightPath=flightSets[flightIndex]
+        flightDate,flightStart=getFlight_start_date_time(originalFlightPath)
+        validatedFlightParams = (flightDate, flightStart, cameraType, plannedElevation, lensAngle, imageType, str(flightIndex))
+        newFlightPath = os.path.join(outputPath, underscore.join(validatedFlightParams))
+        flightMetadataPath = os.path.join(originalFlightPath, "flightMetadata.txt")
+        print("Original Flight Folder: ",originalFlightPath)
+        print('New Flight Folder:', newFlightPath)
+        print("Flight metadata file: ",flightMetadataPath,inputFlightFolder)
+        with open(flightMetadataPath, 'w') as out:
+            out.write(inputFlightFolder + '\n')
+        os.rename(originalFlightPath, newFlightPath)
+        print()
+        flightIndex+=1
+
+    # if the original flight folder is empty, delete it
+    files = os.listdir(inputPath)
+    if len(files) == 0:
+        print
+        "Removing empty folder:", inputPath
+        os.rmdir(inputPath)
+    else:
+        print("Did not remove ", inputPath)
+        print("Directory is not empty.")
+except Exception as e:
+    print('Unexpected error occurred while processing flight sets:', e)
+    print('Exiting...')
+    sys.exit()
 
 sys.exit()
