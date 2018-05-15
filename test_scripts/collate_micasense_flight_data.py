@@ -7,6 +7,29 @@ from __future__ import unicode_literals
 #
 # Checks Micasense flight data sets for completeness and organizes files in a standard directory structure
 #
+# Parameters:
+#
+# '-d', '--dir', help='Absolute path to flight data set folder to be archived '
+#
+# '-o', '--out', help='Output path for the validated flight folders to be archived'
+#
+# Input flight data set folders should have a name in the following format:
+#
+#  <dateyyyymmdd>_<location>_<experiments>_<camera_type>_<planned_elevation>_<lens_angle>_<image_type>_<flight_number>
+#
+# Example:	20180404_18ASH_BYD0BYD2_Rededge_20m_-90_Still_Flight1
+#
+# Output folders (ready to archive) will have a name in the following format:
+#
+# 20180504_163838_MRE_20m_-90_still_0
+# 20180504_164811_MRE_20m_-90_still_1
+# 20180504_165507_MRE_20m_-90_still_2
+#
+# There is one output folder produced for each SET file in the Micasense input folder. In the example above,
+# there were 3 SETS in the original input flight data folder:
+#
+# 0000SET, 0001SET and 0002 SET
+#
 # Version 0.1 May 11,2018
 
 import os
@@ -16,11 +39,6 @@ import datetime
 import re
 import subprocess
 import piexif # Use this to find start date and time of the 100th image
-import shutil
-import time
-from pathlib import Path
-
-
 
 # Command Line Inputs:
 #
@@ -31,6 +49,7 @@ from pathlib import Path
 #
 
 def validate_date_string(flightDate):
+    # Check that the date part of the input folder name is a valid date.
     validDate=True
     try:
         if len(flightDate) != 8:
@@ -50,6 +69,7 @@ def validate_date_string(flightDate):
     return validDate
 
 def validate_camera_type(camera):
+    # Check that the camera type part of the input folder name is a valid Micasense name.
     validCamera=True
 
     if camera in ['RedEdge','rededge','Rededge']:
@@ -63,6 +83,8 @@ def validate_camera_type(camera):
 
 
 def validate_elevation(elevation):
+    # Check that the elevation part of the input folder name is a valid number 0f meters (example '20m').
+
     validElevation = True
 
     match = re.match(r"([0-9]+)([a-z]+)", elevation, re.I)
@@ -76,6 +98,8 @@ def validate_elevation(elevation):
 
 
 def validate_lens_angle(angle):
+    # Check that the lens angle is a valid number of degrees in the range 0 to 180.
+    # Note that the lens angle is implicitly assumed to be negative (i.e. pointing downwards.)
     validAngle=True
 
     if abs(int(angle)) not in range (0,181):
@@ -89,6 +113,7 @@ def validate_lens_angle(angle):
 
 
 def validate_image_type(imgType):
+    # Check that the image type is either 'still' or 'video'
     validImageType=True
 
     if imgType in ['still','Still']:
@@ -104,6 +129,7 @@ def validate_image_type(imgType):
 
 
 def validate_flight_number(fltNumber):
+    # Check that the flight number is of the format Flight<n> (Example: 'Flight1')
     validFlightNumber=True
 
     match = re.match(r"([a-z]+)([0-9]+)", fltNumber, re.I)
@@ -118,6 +144,7 @@ def validate_flight_number(fltNumber):
     return validFlightNumber,flightNumber
 
 def getFlight_start_date_time(flightSet):
+    # Determine the time of the first image in each flight SET.
     imageList = []
     imageFileType = 'tif'
     imagePath = os.path.join(flightSet, '000')
@@ -137,9 +164,6 @@ def getFlight_start_date_time(flightSet):
 def get_image_file_list(uasPath, imageType, imageFileList):
     # Return a list of the names and sample date & time for all image files.
 
-    # Get list of files in uas staging directory
-
-    #print("Fetching list of image files...")
 
     filestocheck = subprocess.check_output(['ls', '-1', uasPath], universal_newlines=True)
 
@@ -153,7 +177,7 @@ def get_image_file_list(uasPath, imageType, imageFileList):
             filelist.append(afile)
             afile = ''
 
-            # Get the subset of files that are the image files
+    # Get the subset of files that are the image files
 
     for f in filelist:
         imageFileType=f.split('.')[1]
@@ -166,18 +190,17 @@ def get_image_file_list(uasPath, imageType, imageFileList):
 
 cmdline = argparse.ArgumentParser()
 
-cmdline.add_argument('-d', '--dir', help='Absolute path to flight data set folder')
+cmdline.add_argument('-d', '--dir', help='Absolute path to flight data set folder to be archived')
 
-cmdline.add_argument('-o', '--out', help='Output path')
+cmdline.add_argument('-o', '--out', help='Output path for the validated flight folders to be archived')
 
 args = cmdline.parse_args()
 
 inputPath=args.dir
-#inputPath=os.path.join(inputPath,'')
 outputPath=args.out
 underscore='_'
 
-# Get the flight folder name and validate that the name conforms to naming convention
+# Get the input flight folder name and validate that the name conforms to naming convention
 
 inputFlightFolder=os.path.basename(inputPath)
 
@@ -209,8 +232,9 @@ validFlightNumber,flightNumber=validate_flight_number(fltNumber)
 
 if not validDate or not validCamera or not validElevation or not validImageType or not validFlightNumber:
     print('Input folder name does not conform to naming conventions...Exiting.')
+    sys.exit()
 
-# Determine the number of flight sets (nnnnSET) in the flight folder
+# Determine the number of flight SETs (nnnnSET) in the flight folder
 
 flightSets=[]
 flightSets=[os.path.join(inputPath,name,'') for name in os.listdir(inputPath) if os.path.isdir(os.path.join(inputPath,name))]
@@ -220,7 +244,7 @@ if flightSets==[]:
     print("No flight data sets found in uav_staging...Exiting")
     sys.exit()
 
-# Formulate the flight folder names according to the naming standard
+# Formulate the flight folder names according to the naming standard and rename the SET folders using the new names
 
 try:
     flightIndex=0
