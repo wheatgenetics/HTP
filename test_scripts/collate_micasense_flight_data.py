@@ -75,7 +75,7 @@ def validate_camera_type(camera):
     if camera in ['RedEdge','rededge','Rededge']:
         cameraType='MRE'
     else:
-        print('Invalid camera type :', camera)
+        raise ValueError("Invalid camera type :", camera)
         validCamera=False
         cameraType=None
 
@@ -86,12 +86,14 @@ def validate_elevation(elevation):
     # Check that the elevation part of the input folder name is a valid number 0f meters (example '20m').
 
     validElevation = True
+    plannedElevation = elevation
 
     match = re.match(r"([0-9]+)([a-z]+)", elevation, re.I)
     if match:
         items = match.groups()
-        plannedElevation=elevation
+
     else:
+        raise ValueError("Incorrect elevation format, should be a numeric value in meters e.g. 20m")
         validElevation=False
 
     return validElevation,plannedElevation
@@ -101,13 +103,14 @@ def validate_lens_angle(angle):
     # Check that the lens angle is a valid number of degrees in the range 0 to 180.
     # Note that the lens angle is implicitly assumed to be negative (i.e. pointing downwards.)
     validAngle=True
-
-    if abs(int(angle)) not in range (0,181):
-        print('Invalid lens angle :',angle)
-        validAngle=False
-        lensAngle=None
-    else:
-        lensAngle=angle
+    try:
+        if abs(int(angle)) in range (0,181):
+            lensAngle=angle
+        else:
+            print("Lens angle must be in the range 0 to -180 (degrees)")
+    except:
+        raise ValueError("Incorrect lens angle, should be a numeric value in the range 0 to -180")
+        lensAngle = None
 
     return validAngle,lensAngle
 
@@ -121,7 +124,7 @@ def validate_image_type(imgType):
     elif imgType in ['video','Video']:
         imageType='Video'
     else:
-        print('Invalid image type :',imgType)
+        raise ValueError("Invalid image type :",imgType)
         validImageType=False
         imageType=None
 
@@ -136,8 +139,9 @@ def validate_flight_number(fltNumber):
     if match:
         items = match.groups()
         flightNumber=items[1]
+        int(flightNumber)
     else:
-        print('Invalid flight number :', fltNumber)
+        raise ValueError("Invalid flight number :", fltNumber)
         validFlightNumber=False
         flightNumber=None
 
@@ -194,59 +198,67 @@ cmdline.add_argument('-d', '--dir', help='Absolute path to flight data set folde
 
 cmdline.add_argument('-o', '--out', help='Output path for the validated flight folders to be archived')
 
-args = cmdline.parse_args()
 
-inputPath=args.dir
-outputPath=args.out
-underscore='_'
+try:
+
+    args = cmdline.parse_args()
+
+    inputPath=args.dir
+    outputPath=args.out
+    underscore='_'
 
 # Get the input flight folder name and validate that the name conforms to naming convention
 
-inputFlightFolder=os.path.basename(inputPath)
+    inputFlightFolder=os.path.basename(inputPath)
 
-flightParams=inputFlightFolder.split('_')
-if len(flightParams) != 8:
-    print('InputFolderName is not in the correct format...Exiting.')
-    sys.exit()
+    flightParams=inputFlightFolder.split('_')
+    if len(flightParams) != 8:
+        print('Input folder name does not conform to naming conventions:')
+        print('<dateyyyymmdd>_<location>_<experiments>_<camera_type>_<planned_elevation>_<lens_angle>_<image_type>_<flight_number>')
+        print('Example:	20180404_18ASH_BYD0BYD2_Rededge_20m_-90_Still_Flight1')
+        print('Exiting.')
+        sys.exit()
 
-flightDate=flightParams[0]
-validDate=validate_date_string(flightDate)
+    flightDate=flightParams[0]
+    validDate=validate_date_string(flightDate)
 
-location=flightParams[1]
-experiments=flightParams[2]
+    location=flightParams[1]
+    experiments=flightParams[2]
 
-camera=flightParams[3]
-validCamera,cameraType=validate_camera_type(camera)
+    camera=flightParams[3]
+    validCamera,cameraType=validate_camera_type(camera)
 
-elevation=flightParams[4]
-validElevation,plannedElevation=validate_elevation(elevation)
+    elevation=flightParams[4]
+    validElevation,plannedElevation=validate_elevation(elevation)
 
-angle=flightParams[5]
-validAngle,lensAngle=validate_lens_angle(angle)
+    angle=flightParams[5]
+    validAngle,lensAngle=validate_lens_angle(angle)
 
-imgType=flightParams[6]
-validImageType,imageType=validate_image_type(imgType)
+    imgType=flightParams[6]
+    validImageType,imageType=validate_image_type(imgType)
 
-fltNumber=flightParams[7]
-validFlightNumber,flightNumber=validate_flight_number(fltNumber)
+    fltNumber=flightParams[7]
+    validFlightNumber,flightNumber=validate_flight_number(fltNumber)
 
-if not validDate or not validCamera or not validElevation or not validImageType or not validFlightNumber:
-    print('Input folder name does not conform to naming conventions...Exiting.')
-    sys.exit()
+    if not validDate or not validCamera or not validElevation or not validImageType or not validFlightNumber:
+        print('Input folder name does not conform to naming conventions:')
+        print('<dateyyyymmdd>_<location>_<experiments>_<camera_type>_<planned_elevation>_<lens_angle>_<image_type>_<flight_number>')
+        print('Example:	20180404_18ASH_BYD0BYD2_Rededge_20m_-90_Still_Flight1')
+        print('Exiting.')
+        sys.exit()
 
-# Determine the number of flight SETs (nnnnSET) in the flight folder
+    # Determine the number of flight SETs (nnnnSET) in the flight folder
 
-flightSets=[]
-flightSets=[os.path.join(inputPath,name,'') for name in os.listdir(inputPath) if os.path.isdir(os.path.join(inputPath,name))]
-flightSets.sort()
+    flightSets=[]
+    flightSets=[os.path.join(inputPath,name,'') for name in os.listdir(inputPath) if os.path.isdir(os.path.join(inputPath,name))]
+    flightSets.sort()
 
-if flightSets==[]:
-    print("No flight data sets found in uav_staging...Exiting")
-    sys.exit()
+    if flightSets==[]:
+        print("No flight data sets found in uav_staging...Exiting")
+        sys.exit()
 
 # Formulate the flight folder names according to the naming standard and rename the SET folders using the new names
 
-try:
     flightIndex=0
     for count,flight in enumerate(flightSets):
         originalFlightPath=flightSets[flightIndex]
