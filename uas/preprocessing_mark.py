@@ -27,8 +27,9 @@ import mysql.connector # For successful installation, need to run pip3 install -
 from mysql.connector import errorcode
 
 import sys
+from collections import defaultdict
 #------------------------------------------------------------------------
-# Panel Detection Parameter settings, MAY NEED MODIFY
+# Panel Detection Parameter settings, MAY NEED TO MODIFY
 black_th=110
 # cont_th=7000
 cont_th=4000
@@ -64,6 +65,7 @@ def panelDetect(image,b_th,ct_th):
                 cv2.drawContours(image, [c], -1, (0, 255, 0), 1)
                 cv2.putText(image, shape, (cX, cY), cv2.FONT_HERSHEY_SIMPLEX,0.5, (255, 255, 255), 1)
     if sq == 1:
+        print("Panel Found:",approx)
         return approx
     else:
         return [[[0,0]],[[0,0]],[[0,0]],[[0,0]]]
@@ -79,15 +81,21 @@ def open_db_connection(config):
 
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-                print("Something is wrong with your user name or password")
+                print('Something is wrong with your user name or password')
+                with open(logname, 'a') as logoutput:
+                    logoutput.write('Something is wrong with your user name or password\n')
                 sys.exit()
             elif err.errno == errorcode.ER_BAD_DB_ERROR:
-                print("Database does not exist")
+                print('Database does not exist')
+                with open(logname, 'a') as logoutput:
+                    logoutput.write('Database does not exist')
                 sys.exit()
             else:
                 print(err)
         else:
             print('Connected to MySQL database:' + cnx.database)
+            with open(logname, 'a') as logoutput:
+                logoutput.write('Connected to MySQL database' + cnx.database + '\n')
             cursor = cnx.cursor(buffered=True)
         return cursor,cnx
 
@@ -104,8 +112,74 @@ def commit_and_close_db_connection(cursor,cnx):
     except Exception as e:
             print('There was a problem committing database changes or closing a database connection.')
             print('Error Code: ' + e)
+            with open(logname, 'a') as logoutput:
+                logoutput.write('There was a problem committing database changes or closing a database connection.\n')
+                logoutput.write('Error Code: ' + e,'\n')
 
     return
+#------------------------------------------------------------------------
+def validate_micasense_images(imageFileList):
+
+    #pathToImages = os.path.join(subFolder + '*.' + imageType)
+
+    print("Number of images before validation", len(imageFileList))
+
+    validImageList = []
+    invalidImageList=[]
+    imageCheckDict = defaultdict(list)
+
+    #imageFileList = os.listdir(subFolder)
+    #imageFileList.sort()
+
+    for f in imageFileList:
+
+        #imageName = subFolder + f
+        imageName=f
+        a = f.split('/')[-1]
+        primaryImageName = f.rpartition('_')[0]
+        imageSize = os.stat(imageName).st_size
+        imageCheckDict[primaryImageName].append([f, imageSize])
+
+    for k, v in sorted(imageCheckDict.items()):
+        truncatedImage = False
+        missingImage = False
+
+    # Check for image sets which have less than 5 images or more than 5 images and remove them from the valid list if found
+
+        if len(v) != 5:
+            missingImage=True
+
+    # Check for images that have been truncated (less than  2Mb or 2097152 bytes) and remove the set from the valid list if found
+
+        for i in imageCheckDict[k]:
+            imageSize=i[1]
+            if imageSize < 2097152:
+                truncatedImage = True
+
+        if truncatedImage or missingImage:
+            for i in imageCheckDict[k]:
+                invalidImageList.append(i[0])
+            imageCheckDict.pop(k, )
+            if truncatedImage:
+                print('***Deleted Image Set' + k + 'Due to Truncated Image', k)
+                with open(logname, 'a') as logoutput:
+                    logoutput.write('***Deleted Image Set' + k + ' Due to Truncated Image' + '\n')
+            elif missingImage:
+                print('***Deleted Image Set'+ k + ' Image set does not have 5 images.')
+                with open(logname, 'a') as logoutput:
+                    logoutput.write('***Deleted Image Set' + k + ' Image set does not have 5 images.' + '\n')
+
+    # Build the list of valid images to be processed further
+
+    for k, v in sorted(imageCheckDict.items()):
+        for i in range(0, 5):
+            validImageList.append(v[i][0])
+
+    print("Number of images that passed validation:", len(validImageList))
+    invalidImageList.sort()
+
+    return validImageList,invalidImageList
+
 #------------------------------------------------------------------------
 
 # construct the argument parse and parse the arguments
@@ -115,20 +189,27 @@ cmdline = argparse.ArgumentParser()
 cmdline.add_argument('-p', '--path', help='Path to Micasense flight data set directory',
                      default='/bulk/jpoland/images/staging/uas_staging/')
 cmdline.add_argument('-c', '--panel', help='Calibration panel serial number')
+
 args = cmdline.parse_args()
 #filePath = os.path.join(args.path,'')
 filePath=args.path
 calibPanel=args.panel
 panelCalibration={}
 
+#------------------------------------------------------------------------
+
 # Define the output LogFile
+
 logFile = 'Log_'+datetime.now().strftime("%y%m%d_%H%M%S")+'.txt'
 logname = os.path.join(filePath,logFile)
 with open(logname, 'a') as logoutput:
     logoutput.write("File path is: %s\n" % filePath)
 print("File path is: %s" % filePath)
 
+#------------------------------------------------------------------------
+
 # Query the database calibration table for calibration parameters
+
 cursor, cnx = open_db_connection(config)
 calibQuery=("SELECT parameter_type,parameter_value from calibration where serial_number LIKE %s")
 
@@ -149,27 +230,33 @@ try:
             elif parameter_type == 'nir':
                 panelCalibration['NIR'] = parameter_value
             else:
-                logoutput.write("Unknown calibration parameter type: ",parameter_type)
-                print("Unknown calibration parameter type: ",parameter_type)
+                print("Unknown calibration parameter type: " + parameter_type)
+                with open(logname, 'a') as logoutput:
+                    logoutput.write("Unknown calibration parameter type: " + parameter_type + '\n')
+
     else:
         print("There were no calibration parameters found in the database for " + calibPanel)
-        logoutput.write("There were no calibration parameters found in the database for " + calibPanel)
         print("Exiting...")
-        logoutput.write("Exiting...")
+        with open(logname, 'a') as logoutput:
+            logoutput.write("There were no calibration parameters found in the database for " + calibPanel + '\n')
+            logoutput.write("Exiting...\n")
         sys.exit()
 except Exception as e:
-    # print('Unexpected error during database query:', sys.exc_info()[0])
-    print('Unexpected error during database query:', e)
-    logoutput.write('Unexpected error during database query:', e)
+    print('Unexpected error during database query:'+ e)
     print('Exiting...')
-    logoutput.write("Exiting...")
+    with open(logname, 'a') as logoutput:
+        logoutput.write('Unexpected error during database query:'+ e + '\n')
+        logoutput.write("Exiting...\n")
     sys.exit()
 
-print('Closing connection to database table: calibration ')
+print('Closing connection to database table: calibration')
+
 with open(logname, 'a') as logoutput:
-    logoutput.write("Closing connection to database table: calibration ")
+    logoutput.write("Closing connection to database table: calibration \n")
 commit_and_close_db_connection(cursor, cnx)
+
 #------------------------------------------------------------------------
+
 # Create list of all images
 exten = '.tif'
 imList=[]
@@ -177,40 +264,24 @@ for dirpath, dirnames, files in os.walk(filePath):
     for name in files:
         if name.lower().endswith(exten):
             imList.append(os.path.join(dirpath, name))
+
 with open(logname, 'a') as logoutput:
     logoutput.write("Total images in the path: %d\n" % len(imList))
 print("Total images in the path: %d" % len(imList))
+
+#------------------------------------------------------------------------
 # Filter questionable images
-imNum = 9999
-acc = 0
-tempImList=[]
+
 finalImList=[]
 questionImList=[]
-imList.sort() # Sort the list of image names to support checking that all 5 images are present.
-for im in imList:
-    imObj = im.split(os.sep) # os.sep for platform independence
-    numOfObj = len(imObj)
-    imNumNext = int(imObj[numOfObj-1].split("_")[1])
-    if imNum != imNumNext:
-        imNum = imNumNext
-        if acc == 5:
-            for i in range(0,acc):
-                finalImList.append(tempImList[i])
-        else:
-            for i in range(0,acc):
-                questionImList.append(tempImList[i])
-        acc = 1
-        tempImList.clear()
-        tempImList.append(im)
-    else:
-        acc += 1
-        tempImList.append(im)
-if acc ==5:
-    for i in range(0,5):
-        finalImList.append(tempImList[i])
+finalImList,questionImList=validate_micasense_images(imList)
+
+#------------------------------------------------------------------------
 with open(logname, 'a') as logoutput:
     logoutput.write("Total effective images in the path: %d\n" % len(finalImList))
-    logoutput.write(''.join(questionImList)+"\n")
+    logoutput.write("Images removed from path after validation:" + "\n")
+    for i in questionImList:
+        logoutput.write(i +"\n")
 print("Total effective images in the path: %d" % len(finalImList))
 #------------------------------------------------------------------------
 # Create renamed path
@@ -277,7 +348,8 @@ print("%d files moved to low_altitude" % acc)
 with open(logname, 'a') as logoutput:
     logoutput.write("%d files moved to low_altitude\n" % acc)
 #------------------------------------------------------------------------
-# Calculate converting parameters
+#Calculate converting parameters
+
 if acc > 0:
     imageFiles = os.listdir(filePath + os.sep + "low_altitude" )
     exiftoolPath = None
@@ -304,6 +376,7 @@ if acc > 0:
         bandName = meta.get_item('XMP:BandName')
         radianceImage, L, V, R = msutils.raw_image_to_radiance(meta, imageRaw)
         panel_coords = panelDetect(imageName, black_th, cont_th)
+        print('Panel Coords',panel_coords[0][0][0])
         # Extract coordinates
         if panel_coords[0][0][0]:
             nw_x = int(panel_coords[0][0][0])
@@ -366,6 +439,15 @@ if acc > 0:
     print("Mean Radiance of each band B-G-R-N-E: %.3f, %.3f, %.3f, %.3f,%.3f" % (meanRadiance_B,meanRadiance_G,meanRadiance_R,meanRadiance_N,meanRadiance_E))
     with open(logname, 'a') as logoutput:
         logoutput.write("Mean Radiance of each band B-G-R-N-E: %.3f, %.3f, %.3f, %.3f,%.3f\n" % (meanRadiance_B,meanRadiance_G,meanRadiance_R,meanRadiance_N,meanRadiance_E))
+    if (meanRadiance_B == 0.0 or
+        meanRadiance_G == 0.0 or
+        meanRadiance_R == 0.0 or
+        meanRadiance_N == 0.0 or
+        meanRadiance_E == 0.0):
+        with open(logname, 'a') as logoutput:
+            logoutput.write("One or more bands had a Mean Radiance of 0.0...Exiting")
+        print("One or more bands had a Mean Radiance of 0.0...Exiting")
+        sys.exit()
     radianceToReflectance_B = panelCalibration["Blue"] / meanRadiance_B
     radianceToReflectance_G = panelCalibration["Green"] / meanRadiance_G
     radianceToReflectance_R = panelCalibration["Red"] / meanRadiance_R

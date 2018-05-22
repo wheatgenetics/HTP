@@ -3,9 +3,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 #
-# Program: preprocess_micasense_images.py
+# Program: archive_micasense_images.py
 #
-# Formerly create_uas_metadata_file_micasense
+# Formerly create_uav_micasense_medatadata_nofile.py
 #
 # Version: 0.1 April 10,2017 - Based on create_uav_metadata_file.py
 # Version: 0.2 December 1,2017 - Removed reference to experiment_id
