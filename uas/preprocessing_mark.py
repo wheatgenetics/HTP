@@ -189,12 +189,20 @@ cmdline = argparse.ArgumentParser()
 cmdline.add_argument('-p', '--path', help='Path to Micasense flight data set directory',
                      default='/bulk/jpoland/images/staging/uas_staging/')
 cmdline.add_argument('-c', '--panel', help='Calibration panel serial number')
+cmdline.add_argument('-e', '--exift', help='Path to exiftool executable')
+cmdline.add_argument('-b', '--black', help='Black Threshold',default=110)
+cmdline.add_argument('-ct', '--contour', help='Contour Threshold',default=4000)
+cmdline.add_argument('-r', '--rename', help='Rename images (Y or N)',default='N')
 
 args = cmdline.parse_args()
-#filePath = os.path.join(args.path,'')
+
 filePath=args.path
 calibPanel=args.panel
 panelCalibration={}
+exiftoolPath = args.exift
+black_th = args.black
+cont_th = args.contour
+renameImages=args.rename
 
 #------------------------------------------------------------------------
 
@@ -298,15 +306,20 @@ for im in finalImList:
     imObj = im.split(os.sep)  # os.sep for platform independence
     numOfObj = len(imObj)
     imFile = imObj[numOfObj-1]
-    with exiftool.ExifTool() as et:
-        dtTags = et.get_tag('EXIF:DateTimeOriginal',im)
-        exifAlti = float(et.get_tag('GPS:GPSAltitude',im))
-        if exifAlti > 0:
-            alti.append(exifAlti)
-    dtTags = ''.join(dtTags.split(":")).replace(" ","_")
-    tgFile = filePath + os.sep + "renamed" + os.sep + dtTags +"_" + imFile  # os.sep for platform independence
-    newFile = shutil.copy2(im,tgFile)
-    print("Copying %s" % newFile)
+    if renameImages=='Y':
+        with exiftool.ExifTool() as et:
+            dtTags = et.get_tag('EXIF:DateTimeOriginal',im)
+            exifAlti = float(et.get_tag('GPS:GPSAltitude',im))
+            if exifAlti > 0:
+                alti.append(exifAlti)
+        dtTags = ''.join(dtTags.split(":")).replace(" ","_")
+        tgFile = filePath + os.sep + "renamed" + os.sep + dtTags +"_" + imFile  # os.sep for platform independence
+        newFile = shutil.copy2(im,tgFile)
+        print("Copying %s" % newFile)
+    else:
+        tgFile=filePath + os.sep + "renamed" + os.sep + imFile
+        archivedImage=shutil.copy2(im,tgFile)
+        print('pass')
 #------------------------------------------------------------------------
 # Calculate altitude
 alti_min = numpy.min(alti)
