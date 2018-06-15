@@ -127,7 +127,6 @@ def create_flightId_from_image_datetime(metadataList,longitude,latitude):
     return flight_id,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime
     #return flight_id, utcStartDate, utcStartTime, utcEndDate, utcEndTime
 
-
 def check_manifest(manifest):
     # TBD
     # Check for presence of manifest file and that all data set files are present
