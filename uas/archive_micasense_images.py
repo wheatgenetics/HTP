@@ -185,6 +185,68 @@ def get_micasense_image_list(subFolder,imageType):
 
     return validImageList
 
+def validate_micasense_images(subFolder,imageFileList):
+
+    #pathToImages = os.path.join(subFolder + '*.' + imageType)
+
+    print("Number of images before validation", len(imageFileList))
+
+    validImageList = []
+    invalidImageList=[]
+    imageCheckDict = defaultdict(list)
+
+    #imageFileList = os.listdir(subFolder)
+    #imageFileList.sort()
+
+    for f in sorted(imageFileList):
+
+        imageName = subFolder + f
+        #imageName=f
+        a = f.split('/')[-1]
+        primaryImageName = f.rpartition('_')[0]
+        imageSize = os.stat(imageName).st_size
+        imageCheckDict[primaryImageName].append([f, imageSize])
+
+    for k, v in sorted(imageCheckDict.items()):
+        truncatedImage = False
+        missingImage = False
+
+    # Check for image sets which have less than 5 images or more than 5 images and remove them from the valid list if found
+
+        if len(v) != 5:
+            missingImage=True
+
+    # Check for images that have been truncated (less than  2Mb or 2097152 bytes) and remove the set from the valid list if found
+
+        for i in imageCheckDict[k]:
+            imageSize=i[1]
+            if imageSize < 2097152:
+                truncatedImage = True
+
+        if truncatedImage or missingImage:
+            for i in imageCheckDict[k]:
+                invalidImageList.append(i[0])
+            imageCheckDict.pop(k, )
+            if truncatedImage:
+                print('***Deleted Image Set' + k + 'Due to Truncated Image', k)
+                with open(logname, 'a') as logoutput:
+                    logoutput.write('***Deleted Image Set ' + k + ' Due to Truncated Image' + '\n')
+            elif missingImage:
+                print('***Deleted Image Set'+ k + ' Image set does not have 5 images.')
+                with open(logname, 'a') as logoutput:
+                    logoutput.write('***Deleted Image Set ' + k + ' Image set does not have 5 images.' + '\n')
+
+    # Build the list of valid images to be processed further
+
+    for k, v in sorted(imageCheckDict.items()):
+        for i in range(0, 5):
+            validImageList.append(v[i][0])
+
+    print("Number of images that passed validation:", len(validImageList))
+    invalidImageList.sort()
+
+    return validImageList,invalidImageList
+
 def get_original_flight_dataset_name(flightDataSetPath):
     with open(flightDataSetPath)as f:
         flightDataSet=f.readline().rstrip('\n')
@@ -234,6 +296,8 @@ if uasFolderPathList==[]:
 # Process each data set folder ie. 0000SET,0001SET,00002SET ...nnnnSET
 
 for uasFolder in sorted(uasFolderPathList):
+    logFile = 'Log_' + datetime.datetime.now().strftime("%y%m%d_%H%M%S") + '.txt'
+    logname = os.path.join(uasFolder, logFile)
     print("Processing Data Set: " + uasFolder)
     record_id = None
     notes = ''
@@ -258,7 +322,12 @@ for uasFolder in sorted(uasFolderPathList):
 
         # Get the list of image files in the sub-folder
 
-        imagefiles = get_micasense_image_list(subFolder, imageType)
+        #imagefiles = get_micasense_image_list(subFolder, imageType)
+
+        imageFileList = sorted(os.listdir(subFolder))
+
+        imagefiles, invalidImageFiles = validate_micasense_images(subFolder,imageFileList)
+
         if len(imagefiles) == 0:
             print("There were no image files found in ", uasPath)
             pass
