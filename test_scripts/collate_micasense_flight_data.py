@@ -119,7 +119,7 @@ def validate_image_type(imgType):
     # Check that the image type is either 'still' or 'video'
     validImageType=True
 
-    if imgType in ['still','Still']:
+    if imgType in ['still','Still','stills']:
         imageType='Still'
     elif imgType in ['video','Video']:
         imageType='Video'
