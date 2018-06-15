@@ -134,57 +134,6 @@ def check_manifest(manifest):
     manifest_status=False
     return manifest_status
 
-def get_micasense_image_list(subFolder,imageType):
-
-    pathToImages = os.path.join(subFolder + '*.' + imageType)
-
-    validImageList = []
-    imageCheckDict = defaultdict(list)
-
-    imageFileList = os.listdir(subFolder)
-    imageFileList.sort()
-
-    for f in imageFileList:
-
-        imageName = subFolder + f
-        a = f.split('/')[-1]
-        primaryImageName = f.rpartition('_')[0]
-        imageSize = os.stat(imageName).st_size
-        imageCheckDict[primaryImageName].append([f, imageSize])
-
-    print("Items in Dictionary before checking", len(imageCheckDict))
-
-    for k, v in sorted(imageCheckDict.items()):
-        truncatedImage = False
-
-    # Check for image sets which have less than 5 images or more than 5 images and remove them from the valid list if found
-
-        if len(v) != 5:
-            imageCheckDict.pop(k, )
-            print('Deleted Key', k, ' Image set does not have 5 images.')
-            break
-
-    # Check for images that have been truncated (less than  2Mb or 2097152 bytes) and remove the set from the valid list if found
-
-        for s in range(0, 5):
-            # print(k,v[s][0],v[s][1])
-            imageSize = v[s][1]
-            if imageSize < 2097152:
-                truncatedImage = True
-        if truncatedImage:
-            imageCheckDict.pop(k, )
-            print('Deleted Key Due to Truncated Image', k)
-    print()
-    print("Items in Dictionary after checking", len(imageCheckDict))
-
-    # Build the list of valid images to be processed further
-
-    for k, v in sorted(imageCheckDict.items()):
-        for i in range(0, 5):
-            validImageList.append(v[i][0])
-
-    return validImageList
-
 def validate_micasense_images(subFolder,imageFileList):
 
     #pathToImages = os.path.join(subFolder + '*.' + imageType)
