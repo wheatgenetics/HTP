@@ -105,7 +105,7 @@ def validate_lens_angle(angle):
     validAngle=True
     try:
         if abs(int(angle)) in range (0,181):
-            lensAngle=angle
+            lensAngle=str(abs(int(angle)))
         else:
             print("Lens angle must be in the range 0 to -180 (degrees)")
     except:
@@ -120,7 +120,7 @@ def validate_image_type(imgType):
     validImageType=True
 
     if imgType in ['still','Still']:
-        imageType='still'
+        imageType='Still'
     elif imgType in ['video','Video']:
         imageType='Video'
     else:
@@ -263,7 +263,7 @@ try:
     for count,flight in enumerate(flightSets):
         originalFlightPath=flightSets[flightIndex]
         flightDate,flightStart=getFlight_start_date_time(originalFlightPath)
-        validatedFlightParams = (flightDate, flightStart, cameraType, plannedElevation, lensAngle, imageType, str(flightIndex))
+        validatedFlightParams = (flightDate, flightStart, plannedElevation, cameraType, lensAngle, imageType, str(flightIndex))
         newFlightPath = os.path.join(outputPath, underscore.join(validatedFlightParams))
         flightMetadataPath = os.path.join(originalFlightPath, "flightMetadata.txt")
         print("Original Flight Folder: ",originalFlightPath)
