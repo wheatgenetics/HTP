@@ -174,7 +174,7 @@ def get_micasense_image_list(subFolder,imageType):
         if truncatedImage:
             imageCheckDict.pop(k, )
             print('Deleted Key Due to Truncated Image', k)
-
+    print()
     print("Items in Dictionary after checking", len(imageCheckDict))
 
     # Build the list of valid images to be processed further
@@ -184,6 +184,11 @@ def get_micasense_image_list(subFolder,imageType):
             validImageList.append(v[i][0])
 
     return validImageList
+
+def get_original_flight_dataset_name(flightDataSetPath):
+    with open(flightDataSetPath)as f:
+        flightDataSet=f.readline().rstrip('\n')
+    return flightDataSet
 
 # Get command line input.
 
@@ -215,6 +220,8 @@ uasFolderPathList=[]
 uasSubFolderList=[]
 uasLogFileList=[]
 
+
+
 # Search for data set folders that need to be processed and store in a list
 # NB '' item in os.path.join adds an os-independent trailing slash character
 
@@ -226,12 +233,15 @@ if uasFolderPathList==[]:
 
 # Process each data set folder ie. 0000SET,0001SET,00002SET ...nnnnSET
 
-for uasFolder in uasFolderPathList:
+for uasFolder in sorted(uasFolderPathList):
     print("Processing Data Set: " + uasFolder)
     record_id = None
     notes = ''
     metadataRecord = []
     metadataList = []
+
+    flightDataSetPath = os.path.join(uasFolder, 'flightMetadata.txt')
+    flightDataSetFolder = get_original_flight_dataset_name(flightDataSetPath)
 
     # Parse the flight folder name to extract parameters needed for the uas_run table entry
 
@@ -243,7 +253,7 @@ for uasFolder in uasFolderPathList:
     uasSubFolderList=[]
     uasSubFolderList=[os.path.join(uasFolder,name)+'/' for name in os.listdir(uasFolder) if os.path.isdir(os.path.join(uasFolder,name))]
 
-    for subFolder in uasSubFolderList:
+    for subFolder in sorted(uasSubFolderList):
         print("Processing Data Set sub-folder: "+subFolder)
 
         # Get the list of image files in the sub-folder
@@ -320,6 +330,7 @@ for uasFolder in uasFolderPathList:
     gcp_coords=None
     pixel_coords=None
     record_id=None
+    notes=flightDataSetFolder
 
     db_insert = "INSERT INTO uas_images_test (record_id,image_file_name,flight_id,sensor_id,date_utc,time_utc,position,altitude,altitude_ref,md5sum,position_source,notes) VALUES (%s,%s,%s,%s,%s,%s,ST_PointFromText(%s),%s,%s,%s,%s,%s)"
 
@@ -329,7 +340,7 @@ for uasFolder in uasFolderPathList:
 
     db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
                     "end_time_utc,start_time_local,start_date_local,flight_filename,planned_elevation_m,sensor_id," \
-                    "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
+                    "camera_angle,notes,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
 
     #db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
     #               "end_time_utc,flight_filename,planned_elevation_m,sensor_id," \
@@ -353,7 +364,7 @@ for uasFolder in uasFolderPathList:
     imageCount=insertCount
     flightPolygon=dumps((MultiPoint(pointList)).convex_hull)
     flightRow=(record_id,flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localTime,localDate,
-               flightFolder[1],plannedElevation,sensorId,cameraAngle,flightPolygon,imageCount)
+               flightFolder[1],plannedElevation,sensorId,cameraAngle,notes,flightPolygon,imageCount)
     #flightRow = (record_id, flightId, utcStartDate, utcStartTime, utcEndDate, utcEndTime,flightFolder[1],
     #             plannedElevation, sensorId, cameraAngle, flightPolygon, imageCount)
     cursorD.execute(db_insert_run,flightRow)
