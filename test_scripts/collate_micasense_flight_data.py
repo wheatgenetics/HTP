@@ -209,6 +209,9 @@ try:
 
 # Get the input flight folder name and validate that the name conforms to naming convention
 
+    if inputPath[-1]=='/':
+        inputPath=inputPath[:-1]
+
     inputFlightFolder=os.path.basename(inputPath)
 
     flightParams=inputFlightFolder.split('_')

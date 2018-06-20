@@ -176,7 +176,7 @@ def validate_micasense_images(subFolder,imageFileList):
                 invalidImageList.append(i[0])
             imageCheckDict.pop(k, )
             if truncatedImage:
-                print('***Deleted Image Set' + k + 'Due to Truncated Image', k)
+                print('***Deleted Image Set' + k + ' Due to Truncated Image', k)
                 with open(logname, 'a') as logoutput:
                     logoutput.write('***Deleted Image Set ' + k + ' Due to Truncated Image' + '\n')
             elif missingImage:
