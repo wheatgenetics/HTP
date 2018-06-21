@@ -21,7 +21,7 @@ import imutils
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
-import config
+import test_config
 import mysql.connector # For successful installation, need to run pip3 install -U setuptools,pip install -U wheel
 # and then pip3 install mysql-connector-python-rf
 from mysql.connector import errorcode
@@ -70,13 +70,13 @@ def panelDetect(image,b_th,ct_th):
     else:
         return [[[0,0]],[[0,0]],[[0,0]],[[0,0]]]
 #------------------------------------------------------------------------
-def open_db_connection(config):
+def open_db_connection(test_config):
 
     # Connect to the HTP database
         try:
-            cnx = mysql.connector.connect(user=config.USER, password=config.PASSWORD,
-                                          host=config.HOST, port=config.PORT,
-                                          database=config.DATABASE)
+            cnx = mysql.connector.connect(user=test_config.USER, password=test_config.PASSWORD,
+                                          host=test_config.HOST, port=test_config.PORT,
+                                          database=test_config.DATABASE)
             print('Connecting to Database: ' + cnx.database)
 
         except mysql.connector.Error as err:
@@ -159,15 +159,18 @@ def validate_micasense_images(imageFileList):
         if truncatedImage or missingImage:
             for i in imageCheckDict[k]:
                 invalidImageList.append(i[0])
+                os.remove(i[0])
             imageCheckDict.pop(k, )
             if truncatedImage:
-                print('***Deleted Image Set' + k + 'Due to Truncated Image', k)
+                badImageSet=k+'*'
+                print('***Deleted Image Set' + badImageSet + ' Due to Truncated Image', f)
                 with open(logname, 'a') as logoutput:
-                    logoutput.write('***Deleted Image Set ' + k + ' Due to Truncated Image' + '\n')
+                    logoutput.write('***Deleted Image Set ' + badImageSet + ' Due to Truncated Image' + '\n')
             elif missingImage:
-                print('***Deleted Image Set'+ k + ' Image set does not have 5 images.')
+                badImageSet = k + '*'
+                print('***Deleted Image Set'+ badImageSet + ' Image set does not have 5 images.')
                 with open(logname, 'a') as logoutput:
-                    logoutput.write('***Deleted Image Set ' + k + ' Image set does not have 5 images.' + '\n')
+                    logoutput.write('***Deleted Image Set ' + badImageSet + ' Image set does not have 5 images.' + '\n')
 
     # Build the list of valid images to be processed further
 
@@ -218,7 +221,7 @@ print("File path is: %s" % filePath)
 
 # Query the database calibration table for calibration parameters
 
-cursor, cnx = open_db_connection(config)
+cursor, cnx = open_db_connection(test_config)
 calibQuery=("SELECT parameter_type,parameter_value from calibration where serial_number LIKE %s")
 
 try:
@@ -294,32 +297,47 @@ print("Total effective images in the path: %d" % len(finalImList))
 #------------------------------------------------------------------------
 # Create renamed path
 try:
-    os.makedirs(filePath + os.sep + "renamed") # os.sep for platform independence
-    print("Creating Renamed directory.")
+    renameDirectoryPath=filePath + os.sep + "renamed"
+    os.makedirs(renameDirectoryPath) # os.sep for platform independence
+    print("Creating Renamed directory: " + renameDirectoryPath)
 except OSError as exception:
     if exception.errno != errno.EEXIST:
         raise
 # Rename and copy into Renamed directory
 alti = [] # altitude
 finalImList.sort()
+renamed=False
 for im in finalImList:
     imObj = im.split(os.sep)  # os.sep for platform independence
     numOfObj = len(imObj)
     imFile = imObj[numOfObj-1]
-    if renameImages=='Y':
-        with exiftool.ExifTool() as et:
-            dtTags = et.get_tag('EXIF:DateTimeOriginal',im)
-            exifAlti = float(et.get_tag('GPS:GPSAltitude',im))
-            if exifAlti > 0:
-                alti.append(exifAlti)
+    with exiftool.ExifTool() as et:
+        dtTags = et.get_tag('EXIF:DateTimeOriginal',im)
+        exifAlti = float(et.get_tag('GPS:GPSAltitude',im))
+        if exifAlti > 0:
+            alti.append(exifAlti)
+    if renameImages=='Y' and imFile.startswith('IMG_'):
         dtTags = ''.join(dtTags.split(":")).replace(" ","_")
         tgFile = filePath + os.sep + "renamed" + os.sep + dtTags +"_" + imFile  # os.sep for platform independence
         newFile = shutil.copy2(im,tgFile)
         print("Copying %s" % newFile)
-    else:
-        tgFile=filePath + os.sep + "renamed" + os.sep + imFile
-        archivedImage=shutil.copy2(im,tgFile)
-        print('pass')
+    elif renameImages=='N':
+        archivedImagePath=filePath + os.sep + "renamed" + os.sep + imFile
+        archivedImage=shutil.copy2(im,archivedImagePath)
+        print("Copying %s" % archivedImage)
+    elif not imFile.startswith('IMG_'):
+        print("Image appears to have been renamed already: " + imFile)
+        renamed=True
+        break
+if renamed:
+    print()
+    print("Images already renamed. Please check input folder.")
+    print("Removing renamed directory " + renameDirectoryPath)
+    print("Exiting...")
+    removedRenamed=shutil.rmtree(renameDirectoryPath)
+    sys.exit()
+
+
 #------------------------------------------------------------------------
 # Calculate altitude
 alti_min = numpy.min(alti)
@@ -389,7 +407,7 @@ if acc > 0:
         bandName = meta.get_item('XMP:BandName')
         radianceImage, L, V, R = msutils.raw_image_to_radiance(meta, imageRaw)
         panel_coords = panelDetect(imageName, black_th, cont_th)
-        print('Panel Coords',panel_coords[0][0][0])
+        #print('Panel Coords',panel_coords[0][0][0])
         # Extract coordinates
         if panel_coords[0][0][0]:
             nw_x = int(panel_coords[0][0][0])
