@@ -168,7 +168,7 @@ def validate_micasense_images(subFolder,imageFileList):
 
         for i in imageCheckDict[k]:
             imageSize=i[1]
-            if imageSize < 2097152:
+            if imageSize < 2400000:
                 truncatedImage = True
 
         if truncatedImage or missingImage:
