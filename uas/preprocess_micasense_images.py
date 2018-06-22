@@ -2,6 +2,54 @@
 Created on Nov 14, 2017
 
 @author: xuwang
+
+Updated June 22,2018 by Mark Lucas
+
+preprocess_micasense_images.py
+
+Run-time Pre-requisites
+
+You must set the path to the geos run-time library before executing this program:
+
+Example: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/homes/mlucas/geos/lib
+
+Make sure that you have write permissions to the flight data set folder.
+
+Parameters
+
+usage: preprocess_micasense_images [-h] [-p PATH] [-c PANEL] [-e EXIFT]
+                                   [-b BLACK] [-ct CONTOUR] [-r RENAME]
+
+optional arguments:
+  -h, --help              show this help message and exit
+  -p PATH, --path         Path to Micasense flight data set directory
+  -c PANEL, --panel       Calibration panel serial number
+  -e EXIFT, --exift       Path to exiftool executable
+  -b BLACK, --black       Black Threshold   (default value = 110)
+  -ct CONTOUR, --contour  Contour Threshold (default value = 4000)
+  -t TRUNCATE, --truncate Threshold for truncation of images with size below threshold (default=2097152)
+  -r RENAME, --rename     Rename images (Y or N)
+
+Notes:
+
+This program will calibrate micasense image datasets. It can take input from either a raw flight data set
+(as produced by the UAV operators) or an archived flight data set (stored on Beocat in /bulk/jpoland/images/uas).
+
+If processing a raw data set, the -r flag should be set to 'Y'.
+If processing an archived data set, the -r flag should be set to 'N'.
+
+The program will perform the following functions:
+
+1. Verify that there are 5 and only 5 images in each image 'set' e.g. IMG_0001_1.tif,IMG_0001_2.tif,IMG_0001_3.tif,
+   IMG_0001_4.tif,IMG_0001_5.tif. Any image sets that contain less than 5 or more than 5 images will be deleted.
+2. Verify that there are no truncated images (with unreadable EXIF metadata) by checking the image size is greater than
+   a threshold. Any image sets containing truncated images will be deleted.
+3. Copy all images to be processed into a renamed folder, leaving the original image data set intact.
+4. Identify all images that are low altitude images and move them into a low_altitude folder.
+5. Detect images containing the calibration panel in the image and derive calibration parameters.
+6. Calibrate all images using the computed calibration parameters.
+
+
 '''
 import os
 import argparse
@@ -153,13 +201,13 @@ def validate_micasense_images(imageFileList):
 
         for i in imageCheckDict[k]:
             imageSize=i[1]
-            if imageSize < 2097152:
+            if imageSize < imageTruncateThreshold:
                 truncatedImage = True
 
         if truncatedImage or missingImage:
             for i in imageCheckDict[k]:
                 invalidImageList.append(i[0])
-                os.remove(i[0])
+                os.remove(i[0]) # Remove incomplete image sets or sets with truncated images.
             imageCheckDict.pop(k, )
             if truncatedImage:
                 badImageSet=k+'*'
@@ -196,6 +244,8 @@ cmdline.add_argument('-e', '--exift', help='Path to exiftool executable')
 cmdline.add_argument('-b', '--black', help='Black Threshold',default=110)
 cmdline.add_argument('-ct', '--contour', help='Contour Threshold',default=4000)
 cmdline.add_argument('-r', '--rename', help='Rename images (Y or N)',default='N')
+cmdline.add_argument('-t', '--truncate', help = 'Threshold for truncation of images with size below threshold',
+                     default=2097152)
 
 args = cmdline.parse_args()
 
@@ -206,6 +256,7 @@ exiftoolPath = args.exift
 black_th = args.black
 cont_th = args.contour
 renameImages=args.rename
+imageTruncateThreshold=args.truncate
 
 #------------------------------------------------------------------------
 
