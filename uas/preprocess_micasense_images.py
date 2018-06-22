@@ -290,9 +290,10 @@ finalImList,questionImList=validate_micasense_images(imList)
 #------------------------------------------------------------------------
 with open(logname, 'a') as logoutput:
     logoutput.write("Total effective images in the path: %d\n" % len(finalImList))
-    logoutput.write("Images removed from path after validation:" + "\n")
-    for i in questionImList:
-        logoutput.write(i +"\n")
+    if len(questionImList) > 0:
+        logoutput.write("Images removed from path after validation:" + "\n")
+        for i in questionImList:
+            logoutput.write(i +"\n")
 print("Total effective images in the path: %d" % len(finalImList))
 #------------------------------------------------------------------------
 # Create renamed path
