@@ -401,7 +401,6 @@ if renameOptionError:
     removedRenamed=shutil.rmtree(renameDirectoryPath)
     sys.exit()
 
-
 #------------------------------------------------------------------------
 # Calculate altitude
 alti_min = numpy.min(alti)
