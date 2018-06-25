@@ -358,7 +358,9 @@ except OSError as exception:
 # Rename and copy into Renamed directory
 alti = [] # altitude
 finalImList.sort()
-renamed=False
+renameOptionError=False
+
+print()
 for im in finalImList:
     imObj = im.split(os.sep)  # os.sep for platform independence
     numOfObj = len(imObj)
@@ -368,22 +370,32 @@ for im in finalImList:
         exifAlti = float(et.get_tag('GPS:GPSAltitude',im))
         if exifAlti > 0:
             alti.append(exifAlti)
-    if renameImages=='Y' and imFile.startswith('IMG_'):
-        dtTags = ''.join(dtTags.split(":")).replace(" ","_")
-        tgFile = filePath + os.sep + "renamed" + os.sep + dtTags +"_" + imFile  # os.sep for platform independence
-        newFile = shutil.copy2(im,tgFile)
-        print("Copying %s" % newFile)
+    if renameImages=='Y':
+        if imFile.startswith('IMG_'):
+            dtTags = ''.join(dtTags.split(":")).replace(" ","_")
+            tgFile = filePath + os.sep + "renamed" + os.sep + dtTags +"_" + imFile  # os.sep for platform independence
+            newFile = shutil.copy2(im,tgFile)
+            print("Copying %s" % newFile)
+        else:
+            print("Image appears to have been renamed already: " + imFile)
+            renameOptionError=True
+            break
     elif renameImages=='N':
-        archivedImagePath=filePath + os.sep + "renamed" + os.sep + imFile
-        archivedImage=shutil.copy2(im,archivedImagePath)
-        print("Copying %s" % archivedImage)
-    elif not imFile.startswith('IMG_'):
-        print("Image appears to have been renamed already: " + imFile)
-        renamed=True
+        if imFile.startswith('IMG_'):
+            print("Images have not yet been renamed " + imFile +  " ...but rename option was set to N ")
+            renameOptionError = True
+            break
+        else:
+            archivedImagePath=filePath + os.sep + "renamed" + os.sep + imFile
+            archivedImage=shutil.copy2(im,archivedImagePath)
+            print("Copying %s" % archivedImage)
+    else:
+        print("Image rename option should be set to Y or N: " + imFile)
+        renameOptionError = True
         break
-if renamed:
-    print()
-    print("Images already renamed. Please check input folder.")
+
+if renameOptionError:
+    print("Please check image names in the input folder: " + filePath + " and re-submit program.")
     print("Removing renamed directory " + renameDirectoryPath)
     print("Exiting...")
     removedRenamed=shutil.rmtree(renameDirectoryPath)
