@@ -423,6 +423,11 @@ for uasFolder in uasFolderPathList:
                 newFilename = uasFolder + f
                 shutil.move(oldFilename,newFilename)
             print("Cleaning up...")
+
+            # Check for bad files with names of the form ._IMG* and remove them
+            badFiles = [os.path.join(subFolder,i) for i in os.listdir(subFolder) if os.path.isfile(os.path.join(subFolder, i)) and '._IMG' in i]
+            removeBadFiles = [os.remove(f) for f in badFiles]
+            # Remove the subfolder if empty
             os.rmdir(subFolder)
 
 # Move the data set to the uav_processed folder
