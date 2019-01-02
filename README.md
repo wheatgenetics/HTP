@@ -10,6 +10,7 @@ that can be processed by the archiving program archive_micasense_images.py
 #### Command Line Inputs:
 
 -d or --dir:      Absolute path to flight data folder to be archived
+
 -o or --out:      Output path for the validated flight folders to be archived
 ____________________________________________________________________________________________________________________________
 
