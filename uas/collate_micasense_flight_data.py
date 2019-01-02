@@ -40,10 +40,15 @@ import re
 import subprocess
 import piexif # Use this to find start date and time of the 100th image
 
+#
+# This program is used to organize the flight folders uploaded by UAS operators into a standard format
+# that can be processed by the archiving program archive_micasense_images.py
+#
+#
 # Command Line Inputs:
 #
 #
-# '-d' or '--dir':      'Absolute path to flight data set'
+# '-d' or '--dir':      'Absolute path to flight data set folder to be archived'
 # '-o' or '--out':      'Output file path'
 #
 #
