@@ -5,13 +5,18 @@ from __future__ import unicode_literals
 #
 # Program: archive_micasense_images.py
 #
-# Formerly create_uav_micasense_medatadata_nofile.py
 #
 # Version: 0.1 April 10,2017 - Based on create_uav_metadata_file.py
 # Version: 0.2 December 1,2017 - Removed reference to experiment_id
 # Version: 0.3 April 26,2018 - Added capability to check image set integrity
 #
-# This program 
+# This program will search for Micasense flight data folders in the specified directory, validate and rename all image
+# files for each flight and move them to the specified output folder. It will also update the wheatgenetics uas_run
+# table with summary information about each flight and update the wheatgenetics uas_images table with metadata about
+# each image in each flight.
+#
+# Note: It is necessary to execute the program collate_micasense_flight_data for each flight folder in order to
+# transform the raw data into the standard format required by archive_micasense_images.
 #
 # Command Line Inputs:
 #
