@@ -1,7 +1,6 @@
 # HTP Tools for High-Throughput Phenotyping
 
-## UAS Image Archiving and Pre-processing Tool
-
+## UAS Image Archiving and Pre-processing Tools
 
 ### archive_micasense_images.py
 
@@ -17,39 +16,22 @@ transform the raw data into the standard format required by archive_micasense_im
 
 
 -d or --dir:      Beocat directory path to HTP image files, default=/bulk/jpoland/images/staging/uav_incoming/
+
 -t or --type:     Image file type, e.g. TIF, JPG,DNG,default=TIF
+
 -o or --out:      Output file path and filename,default=/bulk/jpoland/images/staging/uav_processed/
 
 ____________________________________________________________________________________________________________________________
 
-
 ### preprocess_micasense_images
-
-https://github.com/wheatgenetics/HTP/tree/master/uas
-
-There is a compiled executable available that you can try:  /homes/mlucas/python3_programs/htp/preprocess_micasense_images
-
-
-You can test that this works for you by copying the executable to your own folder and typing the following when you are in same folder
-
-./preprocess_micasense_images -h
-
-Before trying this you will need to set the path to the geos run-time library before executing the program
-
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/homes/mlucas/geos/lib
-
-
-I tried to keep the structure of the program as close to your original as possible. It will work with either raw data sets where images have not been renamed or archived data sets where the images have been renamed. The -r parameter is used to indicate which type of image set to process.
-
-Some notes from the readme file for updated program:
 
 #### Run-time Pre-requisites
 
-You must set the path to the geos run-time library before executing this program:
+1. You must set the path to the geos run-time library before executing this program:
 
-Example: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/homes/mlucas/geos/lib
+   Example: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/homes/mlucas/geos/lib
 
-Make sure that you have write permissions to the flight data set folder.
+2. Make sure that you have write permissions to the flight data set folder.
 
 #### Parameters
 
@@ -58,14 +40,22 @@ usage: preprocess_micasense_images [-h] [-p PATH] [-c PANEL] [-e EXIFT]
 
 optional arguments:
   -h, --help              show this help message and exit
+  
   -p PATH, --path         Path to Micasense flight data set directory
+  
   -c PANEL, --panel       Calibration panel serial number
+  
   -e EXIFT, --exift       Path to exiftool executable
+  
   -b BLACK, --black       Black Threshold   (default value = 110)
+  
   -ct CONTOUR, --contour  Contour Threshold (default value = 4000)
+  
   -t TRUNCATE, --truncate Threshold for truncation of images with size below threshold (default=2097152)
+  
   -r RENAME, --rename     Rename images (Y or N)
   
+ 
 #### Notes:
   
 This program will calibrate micasense image datasets. It can take input from either a raw flight data set 
@@ -119,16 +109,21 @@ Example:  DJI_A01733_C001_20170502 (First range in flight)
 #### Command Line Inputs:
 
 -d or --dir:      Directory path to folder containing UAV image and log files
+
 -t or --type:     Image file type extension, e.g. DNG,CR2, JPG, default=DNG
+
 -o or --out:      Output file path
+
 -r or --rename:   Rename image files Y or N,default=N
+
 -x or --debug:    Dump interpolated log file Y or N,default=N
--e or --expt:     Plot prefix for experiment,default=18ASH%)
--y or --lonoffset:Longitude offset in degrees,default=0.0)  Used to correct error in log file longitude
--z or --latoffset:Latitude offset in degrees,default=0.0)   User to correct error in log file latitude
--u or --update:   Update EXIF poisition data,default=N
 
-TODO: Add capability to generate output for the revised uas_run table schema
+-e or --expt:     Plot prefix for experiment,default=18ASH%
 
+-y or --lonoffset:Longitude offset in degrees,default=0.0  Used to correct error in log file longitude
+
+-z or --latoffset:Latitude offset in degrees,default=0.0   User to correct error in log file latitude
+
+-u or --update:   Update EXIF position data,default=N
 
 ____________________________________________________________________________________________________________________________
