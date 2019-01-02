@@ -4,14 +4,29 @@
 
 ### collate_micasense_flight_data.py
 
-This program is used to organize the flight folders uploaded by UAS operators into a standard format
-that can be processed by the archiving program archive_micasense_images.py
+This program checks Micasense flight data sets for completeness and organizes files in a standard directory structure
 
 #### Command Line Inputs:
 
--d or --dir:      Absolute path to flight data folder to be archived
+ '-d', '--dir', help='Absolute path to flight data set folder to be archived '
 
--o or --out:      Output path for the validated flight folders to be archived
+ '-o', '--out', help='Output path for the validated flight folders to be archived'
+
+ Input flight data set folders should have a name in the following format:
+
+  <dateyyyymmdd>_<location>_<experiments>_<camera_type>_<planned_elevation>_<lens_angle>_<image_type>_<flight_number>
+
+Example:	20180404_18ASH_BYD0BYD2_Rededge_20m_-90_Still_Flight1
+
+Output folders (ready to archive) will have a name in the following format:
+
+ 20180504_163838_MRE_20m_-90_still_0
+ 20180504_164811_MRE_20m_-90_still_1
+ 20180504_165507_MRE_20m_-90_still_2
+
+There is one output folder produced for each SET file in the Micasense input folder. In the example above,there were 3 SETS in the original input flight data folder:
+
+0000SET, 0001SET and 0002 SET
 ____________________________________________________________________________________________________________________________
 
 ### archive_micasense_images.py
