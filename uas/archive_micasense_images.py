@@ -26,7 +26,6 @@ from __future__ import unicode_literals
 # '-o' or '--out':      'Output file path and filename,default='/bulk/jpoland/images/staging/uav_processed/'
 #
 
-
 __author__ = 'mlucas'
 
 import csv
