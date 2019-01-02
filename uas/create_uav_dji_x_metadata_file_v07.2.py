@@ -27,7 +27,8 @@ from __future__ import unicode_literals
 # Version: 0.3 May 22,2017 Interpolate position assuming equal time between images over the range flown, instead of
 # using image timestamps.
 #
-# Version: 0.2 May 9,2017 Update to handle multiple image folders.
+# Version: 0.2 May 9,2017 Update to handle
+#  multiple image folders.
 #
 # Version: 0.1 May 23,2016
 #

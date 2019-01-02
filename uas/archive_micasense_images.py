@@ -11,14 +11,14 @@ from __future__ import unicode_literals
 # Version: 0.2 December 1,2017 - Removed reference to experiment_id
 # Version: 0.3 April 26,2018 - Added capability to check image set integrity
 #
-# Creates CSV file containing image metadata to be imported into the uas_images table in the wheatgenetics database.
+# This program 
 #
 # Command Line Inputs:
 #
 #
-# '-d' or '--dir':      'Beocat directory path to HTP image files', default='/homes/mlucas/uas_incoming/'
-# '-t' or '--type':     'Image file type, e.g. CR2, JPG'
-# '-o' or '--out':      'Output file path and filename'
+# '-d' or '--dir':      'Beocat directory path to HTP image files', default='/bulk/jpoland/images/staging/uav_incoming/'
+# '-t' or '--type':     'Image file type, e.g. TIF, JPG,DNG,default=TIF'
+# '-o' or '--out':      'Output file path and filename,default='/bulk/jpoland/images/staging/uav_processed/'
 #
 #
 
@@ -39,14 +39,12 @@ from shapely.wkt import dumps
 from shapely.geometry import Point,Polygon,MultiPoint
 from decimal import *
 import shutil
-import pytz # Removed temporarily since numpy requirement can't install on Windows
-from tzlocal import get_localzone # Removed temporarily since numpy requirement can't install on Windows
-from timezonefinder import TimezoneFinder # Removed temporarily since numpy requirement can't install on Windows
+import pytz
+from tzlocal import get_localzone
+from timezonefinder import TimezoneFinder
 import datetime
 from collections import defaultdict
-
-#print(imagepreprocess.__name__)
-#print(sys.path)
+import exifread
 
 getcontext().prec = 8
 getcontext()
@@ -125,7 +123,6 @@ def create_flightId_from_image_datetime(metadataList,longitude,latitude):
     localTime = dt.time()
 
     return flight_id,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localDate,localTime
-    #return flight_id, utcStartDate, utcStartTime, utcEndDate, utcEndTime
 
 def check_manifest(manifest):
     # TBD
@@ -143,13 +140,9 @@ def validate_micasense_images(subFolder,imageFileList):
     invalidImageList=[]
     imageCheckDict = defaultdict(list)
 
-    #imageFileList = os.listdir(subFolder)
-    #imageFileList.sort()
-
     for f in sorted(imageFileList):
 
         imageName = subFolder + f
-        #imageName=f
         a = f.split('/')[-1]
         primaryImageName = f.rpartition('_')[0]
         imageSize = os.stat(imageName).st_size
@@ -206,13 +199,13 @@ def get_original_flight_dataset_name(flightDataSetPath):
 cmdline = argparse.ArgumentParser()
 
 cmdline.add_argument('-d', '--dir', help='Beocat directory path to HTP imagefiles',
-                     default='/cygdrive/f/uav_staging/')
+                     default='/bulk/jpoland/images/staging/uav_incoming/')
 
 cmdline.add_argument('-t', '--type', help='Image file type extension, e.g. TIF, JPG, DNG',
                      default='TIF')
 
 cmdline.add_argument('-o', '--out', help='Output file path and filename',
-                     default='/cygdrive/f/uav_processed/')
+                     default='/bulk/jpoland/images/staging/uav_processed/')
 
 args = cmdline.parse_args()
 
@@ -227,7 +220,6 @@ if uasOutPath[-1] != '/':
     uasOutPath+='/'
 
 uasFolderPathList=[]
-#uasFolderList=[]
 uasSubFolderList=[]
 uasLogFileList=[]
 
@@ -350,19 +342,15 @@ for uasFolder in sorted(uasFolderPathList):
     record_id=None
     notes=flightDataSetFolder
 
-    db_insert = "INSERT INTO uas_images_test (record_id,image_file_name,flight_id,sensor_id,date_utc,time_utc,position,altitude,altitude_ref,md5sum,position_source,notes) VALUES (%s,%s,%s,%s,%s,%s,ST_PointFromText(%s),%s,%s,%s,%s,%s)"
+    db_insert = "INSERT INTO uas_images(record_id,image_file_name,flight_id,sensor_id,date_utc,time_utc,position,altitude,altitude_ref,md5sum,position_source,notes) VALUES (%s,%s,%s,%s,%s,%s,ST_PointFromText(%s),%s,%s,%s,%s,%s)"
 
-    db_check = "SELECT record_id FROM uas_images_test WHERE flight_id LIKE %s"
+    db_check = "SELECT record_id FROM uas_images WHERE flight_id LIKE %s"
 
-    get_flight_coords = "SELECT ST_X(position),ST_Y(position) from uas_images_test where flight_id like %s"
+    get_flight_coords = "SELECT ST_X(position),ST_Y(position) from uas_images where flight_id like %s"
 
-    db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
+    db_insert_run = "INSERT INTO uas_run (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
                     "end_time_utc,start_time_local,start_date_local,flight_filename,planned_elevation_m,sensor_id," \
                     "camera_angle,notes,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
-
-    #db_insert_run = "INSERT INTO uas_run_test (record_id,flight_id,start_date_utc,start_time_utc,end_date_utc," \
-    #               "end_time_utc,flight_filename,planned_elevation_m,sensor_id," \
-    #                "camera_angle,flight_polygon,image_count) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,ST_PolygonFromText(%s),%s)"
 
     insertCount=0
     for lineitem in metadataList:
@@ -383,8 +371,6 @@ for uasFolder in sorted(uasFolderPathList):
     flightPolygon=dumps((MultiPoint(pointList)).convex_hull)
     flightRow=(record_id,flightId,utcStartDate,utcStartTime,utcEndDate,utcEndTime,localTime,localDate,
                flightFolder[1],plannedElevation,sensorId,cameraAngle,notes,flightPolygon,imageCount)
-    #flightRow = (record_id, flightId, utcStartDate, utcStartTime, utcEndDate, utcEndTime,flightFolder[1],
-    #             plannedElevation, sensorId, cameraAngle, flightPolygon, imageCount)
     cursorD.execute(db_insert_run,flightRow)
     cnx.commit()
     cursorA.close()
@@ -406,34 +392,41 @@ for uasFolder in sorted(uasFolderPathList):
 for uasFolder in uasFolderPathList:
 
 # Process each image sub-folder
+    try:
+        uasSubFolderList = []
+        uasSubFolderList = [os.path.join(uasFolder, name) + '/' for name in os.listdir(uasFolder) if os.path.isdir(os.path.join(uasFolder, name))]
 
-    uasSubFolderList = []
-    uasSubFolderList = [os.path.join(uasFolder, name) + '/' for name in os.listdir(uasFolder) if os.path.isdir(os.path.join(uasFolder, name))]
+        for subFolder in uasSubFolderList:
+            # Get the list of image files in the sub-folder
+            imagefiles = get_image_file_list(subFolder, imageType)
+            if len(imagefiles) == 0:
+                print("There were no image files found in ", subFolder)
+                pass
+            else:
+                print("Moving " + str(len(imagefiles)) + " images from " + subFolder + " to " + uasFolder)
+                for f in imagefiles:
+                    oldFilename = subFolder + f
+                    newFilename = uasFolder + f
+                    shutil.move(oldFilename,newFilename)
+                print("Cleaning up...")
 
-    for subFolder in uasSubFolderList:
-        # Get the list of image files in the sub-folder
-        imagefiles = get_image_file_list(subFolder, imageType)
-        if len(imagefiles) == 0:
-            print("There were no image files found in ", subFolder)
-            pass
-        else:
-            print("Moving " + str(len(imagefiles)) + " images from " + subFolder + " to " + uasFolder)
-            for f in imagefiles:
-                oldFilename = subFolder + f
-                newFilename = uasFolder + f
-                shutil.move(oldFilename,newFilename)
-            print("Cleaning up...")
+                # Check for bad files with names of the form ._IMG* and remove them
+                badFiles = [os.path.join(subFolder,i) for i in os.listdir(subFolder) if os.path.isfile(os.path.join(subFolder, i)) and '._IMG' in i]
+                removeBadFiles = [os.remove(f) for f in badFiles]
+                # Remove the subfolder if empty
+                os.rmdir(subFolder)
 
-            # Check for bad files with names of the form ._IMG* and remove them
-            badFiles = [os.path.join(subFolder,i) for i in os.listdir(subFolder) if os.path.isfile(os.path.join(subFolder, i)) and '._IMG' in i]
-            removeBadFiles = [os.remove(f) for f in badFiles]
-            # Remove the subfolder if empty
-            os.rmdir(subFolder)
+    # Move the data set to the uav_processed folder
 
-# Move the data set to the uav_processed folder
+        print("Moving processed data sets from " + uasFolder + " to " + uasOutPath)
+        shutil.move(uasFolder,uasOutPath)
 
-    print("Moving processed data sets from " + uasFolder + " to " + uasOutPath)
-    shutil.move(uasFolder,uasOutPath)
+    except Exception as e:
+        print('Unexpected error occurred while processing image folder:', subFolder)
+        print('Error: ',e)
+        print('Exiting...')
+        sys.exit()
+
 
 # Exit the program gracefully
 
