@@ -8,9 +8,9 @@ This program checks Micasense flight data sets for completeness and organizes fi
 
 #### Command Line Inputs:
 
- '-d', '--dir', help='Absolute path to flight data set folder to be archived '
+ -d, --dir, help=Absolute path to flight data set folder to be archived
 
- '-o', '--out', help='Output path for the validated flight folders to be archived'
+ -o, --out, help=Output path for the validated flight folders to be archived
 
  Input flight data set folders should have a name in the following format:
 
