@@ -2,7 +2,6 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 
-#
 # Program: archive_micasense_images.py
 #
 #
