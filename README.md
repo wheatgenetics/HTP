@@ -2,6 +2,17 @@
 
 ## UAS Image Archiving and Pre-processing Tools
 
+### collate_micasense_flight_data.py
+
+This program is used to organize the flight folders uploaded by UAS operators into a standard format
+that can be processed by the archiving program archive_micasense_images.py
+
+#### Command Line Inputs:
+
+-d or --dir:      Absolute path to flight data folder to be archived
+-o or --out:      Output path for the validated flight folders to be archived
+____________________________________________________________________________________________________________________________
+
 ### archive_micasense_images.py
 
 This program will search for Micasense flight data folders in the specified directory, validate and rename all image
