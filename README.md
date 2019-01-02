@@ -31,10 +31,7 @@ ________________________________________________________________________________
 
 ### archive_micasense_images.py
 
-This program will search for Micasense flight data folders in the specified directory, validate and rename all image
-files for each flight and move them to the specified output folder. It will also update the wheatgenetics uas_run
-table with summary information about each flight and update the wheatgenetics uas_images table with metadata about
-each image in each flight.
+This program will search for Micasense flight data folders in the specified directory, validate and rename all image files for each flight and move them to the specified output folder. It will also update the wheatgenetics uas_run table with summary information about each flight and update the wheatgenetics uas_images table with metadata about each image in each flight.
 
 Note: It is necessary to execute the program collate_micasense_flight_data for each flight folder in order to
 transform the raw data into the standard format required by archive_micasense_images.
