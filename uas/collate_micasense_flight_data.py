@@ -49,7 +49,7 @@ import piexif # Use this to find start date and time of the 100th image
 #
 #
 # '-d' or '--dir':      'Absolute path to flight data set folder to be archived'
-# '-o' or '--out':      'Output file path'
+# '-o' or '--out':      'Output file path for the validated flight folders to be archived'
 #
 #
 
