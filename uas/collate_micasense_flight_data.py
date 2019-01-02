@@ -3,11 +3,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 #
-# Program: organize_micasense_flight_data
+# Program: collate_micasense_flight_data
 #
-# Checks Micasense flight data sets for completeness and organizes files in a standard directory structure
+# This program checks Micasense flight data sets for completeness and organizes files in a standard directory structure
 #
-# Parameters:
+# Command Line Inputs:
 #
 # '-d', '--dir', help='Absolute path to flight data set folder to be archived '
 #
