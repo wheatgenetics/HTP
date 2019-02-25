@@ -204,8 +204,8 @@ cmdline = argparse.ArgumentParser()
 cmdline.add_argument('-d', '--dir', help='Beocat directory path to HTP imagefiles',
                      default='/bulk/jpoland/images/staging/uav_incoming/')
 
-cmdline.add_argument('-t', '--type', help='Image file type extension, e.g. TIF, JPG, DNG',
-                     default='TIF')
+cmdline.add_argument('-t', '--type', help='Image file type extension, e.g. tif, jpg, dng',
+                     default='tif')
 
 cmdline.add_argument('-o', '--out', help='Output file path and filename',
                      default='/bulk/jpoland/images/staging/uav_processed/')
